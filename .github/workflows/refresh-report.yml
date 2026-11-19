@@ -1,0 +1,43 @@
+name: Refresh BDE report
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 07:30 IST, Monday to Saturday. GitHub cron uses UTC.
+    - cron: "0 2 * * 1-6"
+
+permissions:
+  contents: read
+
+jobs:
+  build-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: Asia/Kolkata
+      CRM_API_BASE_URL: ${{ secrets.CRM_API_BASE_URL }}
+      CRM_API_KEY: ${{ secrets.CRM_API_KEY }}
+      CALLYZER_API_BASE_URL: ${{ secrets.CALLYZER_API_BASE_URL }}
+      CALLYZER_API_TOKEN: ${{ secrets.CALLYZER_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Generate live report
+        run: |
+          END_DATE="$(date +%F)"
+          START_DATE="$(date -d '89 days ago' +%F)"
+          printf 'CRM_API_BASE_URL=%s\nCRM_API_KEY=%s\nCALLYZER_API_BASE_URL=%s\nCALLYZER_API_TOKEN=%s\n' "$CRM_API_BASE_URL" "$CRM_API_KEY" "$CALLYZER_API_BASE_URL" "$CALLYZER_API_TOKEN" > .env
+          python extract_weekly_live.py --start "$START_DATE" --end "$END_DATE"
+          python fetch_revenue_daily.py --start "$START_DATE" --end "$END_DATE"
+          python normalize_weekly_live.py --start "$START_DATE" --end "$END_DATE"
+          python build_report.py "output/live_${START_DATE}_${END_DATE}/normalized_input.json"
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bde-productivity-report
+          path: output/Weekly_Productivity_Report.html
+          retention-days: 14

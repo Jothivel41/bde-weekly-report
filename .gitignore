@@ -1,0 +1,10 @@
+.env
+.DS_Store
+.venv/
+__pycache__/
+output/*.csv
+
+output/*.html
+output/*.json
+output/live_*/
+output/call_chunks/

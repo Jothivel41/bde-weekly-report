@@ -1,0 +1,99 @@
+{
+  "organization_id": "00000000-0000-0000-0000-000000000002",
+  "source": "User-provided hierarchy; database mapping unverified",
+  "role_labels": {
+    "sales person": "BDE",
+    "team lead": "Team lead",
+    "org admin": "Org admin",
+    "admin": "Admin"
+  },
+  "teams": [
+    {
+      "vertical": "Govt State",
+      "manager": "Keerthivengatesh",
+      "team_lead": "Rangaraj",
+      "bdes": [
+        "Karthikeyan"
+      ]
+    },
+    {
+      "vertical": "Govt State",
+      "manager": "Keerthivengatesh",
+      "team_lead": "Idris",
+      "bdes": [
+        "Susmitha"
+      ]
+    },
+    {
+      "vertical": "Govt State",
+      "manager": "Keerthivengatesh",
+      "team_lead": "Dinesh",
+      "bdes": [
+        "Karthiban",
+        "Sowmiya"
+      ]
+    },
+    {
+      "vertical": "Govt Central",
+      "manager": "Dilip Kumar",
+      "team_lead": "Dilip Kumar",
+      "bdes": [
+        "Lalith Kumar",
+        "Ilayaraja",
+        "Saran"
+      ]
+    },
+    {
+      "vertical": "Tech",
+      "manager": "Akshay",
+      "team_lead": null,
+      "bdes": [
+        "Abbas"
+      ]
+    },
+    {
+      "vertical": "Tech",
+      "manager": "Akshay",
+      "team_lead": "Siva Prasad",
+      "bdes": [
+        "Archana",
+        "Jawahar",
+        "Keerthika"
+      ]
+    },
+    {
+      "vertical": "Tech",
+      "manager": "Akshay",
+      "team_lead": "Sanjay",
+      "bdes": [
+        "Saravanan",
+        "Pavithra",
+        "Vennila",
+        "Mathavan"
+      ]
+    }
+  ],
+  "verticals": [
+    {
+      "name": "Govt Central",
+      "manager": "Dilip Kumar",
+      "programs": [
+        "RRB",
+        "SSC",
+        "Banking"
+      ]
+    },
+    {
+      "name": "Govt State",
+      "manager": "Keerthivengatesh",
+      "programs": [
+        "TNPSC"
+      ]
+    },
+    {
+      "name": "Tech",
+      "manager": "Akshay",
+      "programs": []
+    }
+  ]
+}
