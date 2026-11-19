@@ -10,6 +10,7 @@ P=Path(__file__).resolve().parent
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--start', default='2026-09-01')
 parser.add_argument('--end', default=datetime.now(ZoneInfo('Asia/Kolkata')).date().isoformat())
+parser.add_argument('--force', action='store_true', help='Re-fetch snapshots and call chunks even when a matching local run exists.')
 args=parser.parse_args()
 V=dotenv_values(P/'.env'); IST=ZoneInfo('Asia/Kolkata')
 from datetime import timedelta
@@ -39,7 +40,7 @@ def main():
  r=requests.get(V['CALLYZER_API_BASE_URL'].rstrip('/')+'/employee/get',headers={'Authorization':'Bearer '+V['CALLYZER_API_TOKEN']},params={'page_no':1,'page_size':100},timeout=30,allow_redirects=False);r.raise_for_status();data=r.json()
  assert data['message']=='Success' and len(data['result'])==data['total_records'];save('callyzer_employees.json',data)
  time.sleep(2.1)
- if not (OUT/'leads_snapshot.json').exists():
+ if args.force or not (OUT/'leads_snapshot.json').exists():
   meta,rows=get_page(1);print('CRM pagination:',meta,flush=True)
   with ThreadPoolExecutor(max_workers=4) as pool:
    jobs={pool.submit(get_page,p):p for p in range(2,meta['totalPages']+1)}
@@ -49,7 +50,7 @@ def main():
   assert len(rows)==meta['total'] and len({r['id'] for r in rows})==len(rows)
   assert all(r['organizationId']==ORG for r in rows)
   save('leads_snapshot.json',rows);save('leads_pagination.json',meta);print('CRM saved',len(rows),flush=True)
- if not (OUT/'calls_snapshot.json').exists():
+ if args.force or not (OUT/'calls_snapshot.json').exists():
   rows=[]; completions=[]; chunk_start=START
   chunks=OUT/'call_chunks';chunks.mkdir(exist_ok=True)
   with requests.Session() as session:
@@ -57,7 +58,7 @@ def main():
    while chunk_start<QUERY_END:
     chunk_end=min(chunk_start+timedelta(days=7),QUERY_END)
     path=chunks/(chunk_start.date().isoformat()+'.json')
-    if path.exists():
+    if path.exists() and not args.force:
      batch=json.loads(path.read_text())
     else:
      filters={'call_from':int(chunk_start.timestamp()),'call_to':int(chunk_end.timestamp())-1,'call_types':['Outgoing'],'call_method':'PhoneCall','call_mode':'Voice'}

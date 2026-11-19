@@ -15,6 +15,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", default="2026-09-01")
     parser.add_argument("--end", default="2026-11-19")
+    parser.add_argument("--force", action="store_true", help="Refresh dates already present in the local cache.")
     args = parser.parse_args()
     start, end = date.fromisoformat(args.start), date.fromisoformat(args.end)
     output = PROJECT / f"output/live_{start}_{end}" / "revenue_daily.json"
@@ -26,7 +27,7 @@ def main():
         day = start
         while day <= end:
             key = day.isoformat()
-            if key not in cached:
+            if args.force or key not in cached:
                 response = session.get(
                     base + "/admin/revenue/dashboard",
                     params={"dateFrom": key, "dateTo": key}, timeout=40,
