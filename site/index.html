@@ -385,7 +385,7 @@ function rangeForPreset(preset) {
   const startAt = date => ({start: isoDate(date < calendarDate(firstDate) ? calendarDate(firstDate) : date), end: endKey});
   if (preset === "all") return ranges.all;
   if (preset === "today") return {start: lastDate, end: lastDate};
-  if (preset === "yesterday") return startAt(new Date(end.getTime() - millisecondsPerDay));
+  if (preset === "yesterday") { const yesterday = isoDate(new Date(end.getTime() - millisecondsPerDay)); return {start: yesterday, end: yesterday}; }
   if (preset === "last7") return startAt(new Date(end.getTime() - 6 * millisecondsPerDay));
   if (preset === "last30") return startAt(new Date(end.getTime() - 29 * millisecondsPerDay));
   if (preset === "week") {
