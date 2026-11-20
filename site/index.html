@@ -80,22 +80,16 @@ dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(520px
 </div></header>
 <main class="wrap">
   <form class="tools" id="filters" aria-label="Report filters">
-    <details class="date-slicer" id="date-slicer">
-      <summary class="slicer-toggle"><span id="date-slicer-label">All time</span>　⌄</summary>
-      <div class="slicer-menu">
-        <div class="slicer-column"><h3>Cohort Based</h3>
-          <button type="button" class="preset" data-basis="cohort" data-preset="today">Today</button><button type="button" class="preset" data-basis="cohort" data-preset="yesterday">Yesterday</button><button type="button" class="preset" data-basis="cohort" data-preset="week">This Week</button><button type="button" class="preset" data-basis="cohort" data-preset="mtd">Month to Date</button><button type="button" class="preset" data-basis="cohort" data-preset="last7">Last 7 Days</button><button type="button" class="preset" data-basis="cohort" data-preset="last30">Last 30 Days</button><button type="button" class="preset" data-basis="cohort" data-preset="last3months">Last 3 Months</button><button type="button" class="preset" data-basis="cohort" data-preset="custom">Custom Range</button><button type="button" class="preset" data-basis="cohort" data-preset="all">All Time</button>
-        </div>
-        <div class="slicer-column"><h3>Time Based</h3>
-          <button type="button" class="preset" data-basis="time" data-preset="today">Today</button><button type="button" class="preset" data-basis="time" data-preset="yesterday">Yesterday</button><button type="button" class="preset" data-basis="time" data-preset="week">This Week</button><button type="button" class="preset" data-basis="time" data-preset="mtd">Month to Date</button><button type="button" class="preset" data-basis="time" data-preset="last7">Last 7 Days</button><button type="button" class="preset" data-basis="time" data-preset="last30">Last 30 Days</button><button type="button" class="preset" data-basis="time" data-preset="last3months">Last 3 Months</button><button type="button" class="preset" data-basis="time" data-preset="custom">Custom Range</button><button type="button" class="preset" data-basis="time" data-preset="all">All Time</button>
-        </div>
-        <div class="date-fields" id="date-fields" hidden>
-      <label for="start-date">From <input id="start-date" type="date" disabled required></label>
-      <label for="end-date">To <input id="end-date" type="date" disabled required></label>
-        </div>
-        <div class="slicer-actions"><button class="apply" type="submit">Apply</button><button class="reset" id="reset-date-slicer" type="button">Reset</button></div>
-      </div>
-    </details>
+    <label for="date-preset">Period <select class="filter-select" id="date-preset">
+      <option value="today">Today</option><option value="yesterday">Yesterday</option>
+      <option value="last7">Last 7 Days</option><option value="last30">Last 30 Days</option>
+      <option value="mtd">Month to Date</option><option value="custom" selected>Custom Range</option>
+    </select></label>
+    <span id="date-fields">
+      <label for="start-date">From <input id="start-date" type="date" required></label>
+      <label for="end-date">To <input id="end-date" type="date" required></label>
+    </span>
+    <span id="date-slicer-label" aria-live="polite"></span>
     <label for="vertical"><select class="filter-select" id="vertical" aria-label="Vertical"></select></label>
     <button class="apply" id="apply-filters" type="submit">Apply</button>
     <button class="reset" id="reset-filters" type="button">Reset</button>
@@ -122,7 +116,7 @@ const number = {format: value => value == null ? "—" : integerFormat.format(va
 const currency = new Intl.NumberFormat("en-IN", {style: "currency", currency: "INR"});
 const rupees = {format: paise => paise == null ? "—" : currency.format(paise / 100)};
 const dayFormat = new Intl.DateTimeFormat("en-IN", {weekday: "short", day: "numeric", month: "short", timeZone: "UTC"});
-const dateSlicer = document.querySelector("#date-slicer");
+const datePreset = document.querySelector("#date-preset");
 const dateSlicerLabel = document.querySelector("#date-slicer-label");
 const dateFields = document.querySelector("#date-fields");
 const startDate = document.querySelector("#start-date");
@@ -133,7 +127,7 @@ const report = document.querySelector("#report");
 const breadcrumb = document.querySelector("#breadcrumb");
 const backButton = document.querySelector("#back-button");
 const resetFilters = document.querySelector("#reset-filters");
-const resetDateSlicer = document.querySelector("#reset-date-slicer");
+
 const bdeDialog = document.querySelector("#bde-dialog");
 for (const input of [startDate, endDate]) {
   input.min = firstDate;
@@ -383,7 +377,7 @@ function rangeLabel(range) {
 }
 
 function updateSlicerLabel() {
-  dateSlicerLabel.textContent = `Cohort: ${cohortPreset} · Time: ${timePreset}`;
+  dateSlicerLabel.textContent = `Applied: ${rangeLabel(timeRange)}`;
 }
 
 function setPendingRange(basis, range, label) {
@@ -392,13 +386,7 @@ function setPendingRange(basis, range, label) {
   updatePendingButtons();
 }
 
-function updatePendingButtons() {
-  document.querySelectorAll(".preset").forEach(button => {
-    const label = presetLabels[button.dataset.preset];
-    const selected = button.dataset.basis === "cohort" ? pendingCohortPreset : pendingTimePreset;
-    button.classList.toggle("is-pending", label === selected);
-  });
-}
+function updatePendingButtons() {}
 
 function resetPendingDateRanges() {
   pendingCohortRange = ranges.all;
@@ -427,7 +415,7 @@ function applyPendingRanges() {
   selectedDay = null;
   rangeError.hidden = true;
   updateSlicerLabel();
-  dateSlicer.open = false;
+  
   render();
 }
 
@@ -459,30 +447,23 @@ function rangeForPreset(preset) {
   return ranges.all;
 }
 
-const presetLabels = {today: "Today", yesterday: "Yesterday", week: "This Week", mtd: "Month to Date", last7: "Last 7 Days", last30: "Last 30 Days", last3months: "Last 3 Months", all: "All Time", custom: "Custom Range"};
-for (const input of [startDate, endDate]) input.addEventListener('input', () => {
-  if (customPending) setPendingRange(customBasis, {start: startDate.value, end: endDate.value}, 'Custom Range');
-});
-document.querySelectorAll(".preset").forEach(button => button.addEventListener("click", () => {
-  const preset = button.dataset.preset;
-  const basis = button.dataset.basis;
-  if (preset === "custom") {
-    customBasis = basis;
-    customPending = true;
-    dateFields.hidden = false;
-    startDate.disabled = endDate.disabled = false;
-    const current = basis === "cohort" ? pendingCohortRange : pendingTimeRange;
-    startDate.value = current.start;
-    endDate.value = current.end;
-    updatePendingButtons();
-    startDate.focus();
-    return;
+const presetLabels = {today: 'Today', yesterday: 'Yesterday', last7: 'Last 7 Days', last30: 'Last 30 Days', mtd: 'Month to Date', custom: 'Custom Range'};
+function selectPeriod() {
+  const preset = datePreset.value;
+  customPending = preset === 'custom';
+  dateFields.hidden = !customPending;
+  startDate.disabled = endDate.disabled = !customPending;
+  rangeError.hidden = true;
+  if (!customPending) {
+    const range = rangeForPreset(preset);
+    setPendingRange('cohort', range, presetLabels[preset]);
+    setPendingRange('time', range, presetLabels[preset]);
   }
-  customPending = false;
-  dateFields.hidden = true;
-  startDate.disabled = endDate.disabled = true;
-  setPendingRange(basis, rangeForPreset(preset), presetLabels[preset]);
-}));
+}
+datePreset.addEventListener('change', selectPeriod);
+startDate.value = firstDate;
+endDate.value = lastDate;
+selectPeriod();
 
 document.querySelector("#filters").addEventListener("submit", event => {
   event.preventDefault();
@@ -493,12 +474,13 @@ document.querySelector("#filters").addEventListener("submit", event => {
       endDate.focus();
       return;
     }
-    setPendingRange(customBasis, {start: startDate.value, end: endDate.value}, "Custom Range");
+    setPendingRange("cohort", {start: startDate.value, end: endDate.value}, "Custom Range");
+    setPendingRange("time", {start: startDate.value, end: endDate.value}, "Custom Range");
   }
   applyPendingRanges();
 });
 resetFilters.addEventListener("click", () => {
-  dateSlicer.open = false;
+  
   dateFields.hidden = true;
   startDate.disabled = endDate.disabled = true;
   vertical.value = "all";
@@ -511,9 +493,12 @@ resetFilters.addEventListener("click", () => {
   cohortPreset = "All Time";
   timePreset = "All Time";
   resetPendingDateRanges();
+  datePreset.value = "custom";
+  startDate.value = firstDate; endDate.value = lastDate;
+  selectPeriod();
   applyPendingRanges();
 });
-resetDateSlicer.addEventListener("click", () => resetPendingDateRanges());
+
 vertical.addEventListener("change", () => {
   selectedDay = null;
   selectedBde = null;
