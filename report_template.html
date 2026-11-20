@@ -93,13 +93,15 @@ dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(520px
       <label for="start-date">From <input id="start-date" type="date" disabled required></label>
       <label for="end-date">To <input id="end-date" type="date" disabled required></label>
         </div>
-        <div class="slicer-actions"><button class="reset" id="reset-date-slicer" type="button">Reset</button><button class="apply" type="submit">Apply</button></div>
+        <div class="slicer-actions"><button class="apply" type="submit">Apply</button><button class="reset" id="reset-date-slicer" type="button">Reset</button></div>
       </div>
     </details>
     <label for="vertical"><select class="filter-select" id="vertical" aria-label="Vertical"></select></label>
+    <button class="apply" id="apply-filters" type="submit">Apply</button>
     <button class="reset" id="reset-filters" type="button">Reset</button>
     <p class="range-error" id="range-error" role="alert" hidden></p>
   </form>
+  <p id="data-freshness" role="status"></p>
   <button id="back-button" class="apply" type="button" hidden>← Back</button>
   <nav id="breadcrumb" aria-label="Report navigation"></nav>
   <section id="report" aria-label="Productivity report"></section>
@@ -411,6 +413,13 @@ function resetPendingDateRanges() {
 }
 
 function applyPendingRanges() {
+  for (const range of [pendingCohortRange, pendingTimeRange]) {
+    if (!range.start || !range.end || range.start > range.end || range.start < firstDate || range.end > lastDate) {
+      rangeError.textContent = `Data available only from ${firstDate} through ${lastDate}. Refresh the source report before selecting later dates.`;
+      rangeError.hidden = false;
+      return;
+    }
+  }
   cohortRange = pendingCohortRange;
   timeRange = pendingTimeRange;
   cohortPreset = pendingCohortPreset;
@@ -437,7 +446,7 @@ function rangeForPreset(preset) {
   const endKey = isoDate(end);
   const startAt = date => ({start: isoDate(date < calendarDate(firstDate) ? calendarDate(firstDate) : date), end: endKey});
   if (preset === "all") return ranges.all;
-  if (preset === "today") return {start: lastDate, end: lastDate};
+  if (preset === "today") return {start: endKey, end: endKey};
   if (preset === "yesterday") { const yesterday = isoDate(new Date(end.getTime() - millisecondsPerDay)); return {start: yesterday, end: yesterday}; }
   if (preset === "last7") return startAt(new Date(end.getTime() - 6 * millisecondsPerDay));
   if (preset === "last30") return startAt(new Date(end.getTime() - 29 * millisecondsPerDay));
@@ -451,6 +460,9 @@ function rangeForPreset(preset) {
 }
 
 const presetLabels = {today: "Today", yesterday: "Yesterday", week: "This Week", mtd: "Month to Date", last7: "Last 7 Days", last30: "Last 30 Days", last3months: "Last 3 Months", all: "All Time", custom: "Custom Range"};
+for (const input of [startDate, endDate]) input.addEventListener('input', () => {
+  if (customPending) setPendingRange(customBasis, {start: startDate.value, end: endDate.value}, 'Custom Range');
+});
 document.querySelectorAll(".preset").forEach(button => button.addEventListener("click", () => {
   const preset = button.dataset.preset;
   const basis = button.dataset.basis;
@@ -475,7 +487,7 @@ document.querySelectorAll(".preset").forEach(button => button.addEventListener("
 document.querySelector("#filters").addEventListener("submit", event => {
   event.preventDefault();
   if (customPending) {
-    if (startDate.value < firstDate || endDate.value > lastDate || startDate.value > endDate.value) {
+    if (!startDate.value || !endDate.value || startDate.value < firstDate || endDate.value > lastDate || startDate.value > endDate.value) {
       rangeError.textContent = "Choose dates within the available range, with the end on or after the start.";
       rangeError.hidden = false;
       endDate.focus();
@@ -511,6 +523,7 @@ vertical.addEventListener("change", () => {
 });
 updateSlicerLabel();
 updatePendingButtons();
+document.querySelector('#data-freshness').textContent = `Source snapshot: ${firstDate} through ${lastDate} (IST). ${lastDate < todayInIst() ? 'Today is not included. The source refresh has not reached today.' : 'Today is partial, through the last extraction.'} Apply filters this snapshot; it does not fetch new CRM data.`;
 render();
 </script>
 </body>
