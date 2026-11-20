@@ -11,6 +11,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--start', default='2026-09-01')
 parser.add_argument('--end', default=datetime.now(ZoneInfo('Asia/Kolkata')).date().isoformat())
 parser.add_argument('--force', action='store_true', help='Re-fetch snapshots and call chunks even when a matching local run exists.')
+parser.add_argument('--leads-only', action='store_true', help='Refresh only the CRM lead snapshot; skip user, follow-up and Callyzer downloads.')
 args=parser.parse_args()
 V=dotenv_values(P/'.env'); IST=ZoneInfo('Asia/Kolkata')
 from datetime import timedelta
@@ -26,20 +27,21 @@ def get_page(page):
  for attempt in range(3):
   try:
    r=requests.get(V['CRM_API_BASE_URL']+'/admin/leads',headers={'x-api-key':V['CRM_API_KEY']},params={'page':page,'limit':100},timeout=90,allow_redirects=False);r.raise_for_status();d=r.json()
-   keep=('id','organizationId','assignedToId','assignedAt','createdAt','stage','stageEnteredAt','enrollmentId','enrollmentDate','activities','collectionAmounts')
+   keep=('id','organizationId','assignedToId','assignedAt','createdAt','stage','status','stageDetails','stageEnteredAt','enrollmentId','enrollmentDate','activities','collectionAmounts')
    return d['pagination'],[{k:row.get(k) for k in keep} for row in d['data']]
   except requests.RequestException:
    if attempt==2:raise
    time.sleep(2)
 def main():
  OUT.mkdir(exist_ok=True)
- for route, filename in [('admin/users','admin_users.json'),('admin/teams','admin_teams.json'),('admin/stages','admin_stages.json'),('admin/followups','followups_snapshot.json')]:
-  r=requests.get(V['CRM_API_BASE_URL']+'/'+route,headers={'x-api-key':V['CRM_API_KEY']},params={'page':1,'limit':100},timeout=30,allow_redirects=False);r.raise_for_status();data=r.json()
-  if isinstance(data,dict) and 'pagination' in data: assert len(data['data'])==data['pagination']['total']
-  save(filename,data)
- r=requests.get(V['CALLYZER_API_BASE_URL'].rstrip('/')+'/employee/get',headers={'Authorization':'Bearer '+V['CALLYZER_API_TOKEN']},params={'page_no':1,'page_size':100},timeout=30,allow_redirects=False);r.raise_for_status();data=r.json()
- assert data['message']=='Success' and len(data['result'])==data['total_records'];save('callyzer_employees.json',data)
- time.sleep(2.1)
+ if not args.leads_only:
+  for route, filename in [('admin/users','admin_users.json'),('admin/teams','admin_teams.json'),('admin/stages','admin_stages.json'),('admin/followups','followups_snapshot.json')]:
+   r=requests.get(V['CRM_API_BASE_URL']+'/'+route,headers={'x-api-key':V['CRM_API_KEY']},params={'page':1,'limit':100},timeout=30,allow_redirects=False);r.raise_for_status();data=r.json()
+   if isinstance(data,dict) and 'pagination' in data: assert len(data['data'])==data['pagination']['total']
+   save(filename,data)
+  r=requests.get(V['CALLYZER_API_BASE_URL'].rstrip('/')+'/employee/get',headers={'Authorization':'Bearer '+V['CALLYZER_API_TOKEN']},params={'page_no':1,'page_size':100},timeout=30,allow_redirects=False);r.raise_for_status();data=r.json()
+  assert data['message']=='Success' and len(data['result'])==data['total_records'];save('callyzer_employees.json',data)
+  time.sleep(2.1)
  if args.force or not (OUT/'leads_snapshot.json').exists():
   meta,rows=get_page(1);print('CRM pagination:',meta,flush=True)
   with ThreadPoolExecutor(max_workers=4) as pool:
@@ -50,7 +52,7 @@ def main():
   assert len(rows)==meta['total'] and len({r['id'] for r in rows})==len(rows)
   assert all(r['organizationId']==ORG for r in rows)
   save('leads_snapshot.json',rows);save('leads_pagination.json',meta);print('CRM saved',len(rows),flush=True)
- if args.force or not (OUT/'calls_snapshot.json').exists():
+ if not args.leads_only and (args.force or not (OUT/'calls_snapshot.json').exists()):
   rows=[]; completions=[]; chunk_start=START
   chunks=OUT/'call_chunks';chunks.mkdir(exist_ok=True)
   with requests.Session() as session:

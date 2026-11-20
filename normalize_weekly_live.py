@@ -64,6 +64,13 @@ def main():
  assert len({r['call_id'] for r in calls})==len(calls)
  completed=Counter((r['assignedToId'],day(r['completedAt']).isoformat()) for r in read('followups_snapshot.json')['data'] if r.get('assignedToId') in ids and r.get('status')=='completed' and in_week(r.get('completedAt')))
  enrolled=Counter((r['assignedToId'],day(r['enrollmentDate']).isoformat()) for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled' and in_week(r['enrollmentDate']))
+ # A sale is an enrolled lead, including live NBFC processing/completed statuses;
+ # rejected NBFC applications do not count as a sale.  Use the enrollment event
+ # date first, then the stage-entry timestamp when the CRM has no enrollment date.
+ sales=Counter((r['assignedToId'],day(r.get('enrollmentDate') or r.get('stageEnteredAt')).isoformat())
+               for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
+               and r.get('status') != 'nbfc_rejected'
+               and in_week(r.get('enrollmentDate') or r.get('stageEnteredAt')))
  revenue_by_day = read('revenue_daily.json')
  revenue_by_bde_day = {}
  for day_key, payload in revenue_by_day.items():
@@ -77,7 +84,7 @@ def main():
    financial = revenue_by_bde_day.get((u['name'], dt), {})
    daily.append(dict(bde_id=u['id'],date=dt,followups=completed[k],pending=None,
                      stageMoves=None,enrolled=enrolled[k],
-                     sales=int(financial.get('sales', 0)),
+                     sales=sales[k],
                      saleValue=str(financial.get('saleValue', 0)),
                      revenue=str(financial.get('collections', 0))))
  name_matches=[r['crm_name'] for r in mappings if r['basis'].startswith('Unique')]
@@ -88,7 +95,7 @@ def main():
   'Callyzer employee matches based on unique names rather than matching CRM phones: '+', '.join(name_matches)+'. These name-based identity matches were approved by you; the phone discrepancy remains documented.',
   'Enrolled = currently enrolled lead records with enrollmentDate in the selected range, attributed to the current BDE. The API supplies no enrollmentId for these records. This is not verified historical seller attribution or a count of every program enrollment.',
   'Follow-ups completed counts completed tasks returned by the follow-up API with completedAt in the selected range. Calls, notes and other follow-up actions are not included.',
-  'Booked sale value and Collections received are time-based: each is taken from the CRM Revenue Dashboard for its transaction period, queried one IST day at a time and attributed by its BDE breakdown. They are distinct: booked sale value is not cash received. Historical pending follow-ups and stage-change counts remain unavailable and show as —.',
+  'Sales count is the enrolled stage cohort, including NBFC initiated, in-progress and completed cases; rejected NBFC cases are excluded. Initial, part and full payments are revenue/collections, not additional sales. Sale value and Revenue are time-based CRM Revenue Dashboard amounts; they are distinct. Historical pending follow-ups and stage-change counts remain unavailable and show as —.',
   'Extraction completed: '+read('extracted_at.json')['at']+'. The CRM pagination total and unique lead IDs reconcile; the Callyzer stream END total reconciles. Sources: CRM /admin/leads, /admin/users, /admin/teams, /admin/followups; Callyzer /employee/get and /call-log/history/stream.'
  ]
  source=dict(sample=False,as_of=datetime.fromisoformat(read('extracted_at.json')['end_exclusive']).strftime('%d %b %Y, %H:%M IST'),coverage={'start':str(START),'end':str(END)},bdes=members,arrivals=arrivals,leads=leads,calls=calls,daily_crm=daily,unavailable_metrics=['pending','stageMoves'],source_notes=notes)
