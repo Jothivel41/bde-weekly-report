@@ -84,10 +84,10 @@ dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(520px
       <summary class="slicer-toggle"><span id="date-slicer-label">All time</span>　⌄</summary>
       <div class="slicer-menu">
         <div class="slicer-column"><h3>Cohort Based</h3>
-          <button type="button" class="preset" data-preset="today">Today</button><button type="button" class="preset" data-preset="yesterday">Yesterday</button><button type="button" class="preset" data-preset="week">This Week</button><button type="button" class="preset" data-preset="mtd">Month to Date</button><button type="button" class="preset" data-preset="last7">Last 7 Days</button><button type="button" class="preset" data-preset="last30">Last 30 Days</button><button type="button" class="preset" data-preset="last3months">Last 3 Months</button><button type="button" class="preset" data-preset="custom">Custom Range</button><button type="button" class="preset" data-preset="all">All Time</button>
+          <button type="button" class="preset" data-basis="cohort" data-preset="today">Today</button><button type="button" class="preset" data-basis="cohort" data-preset="yesterday">Yesterday</button><button type="button" class="preset" data-basis="cohort" data-preset="week">This Week</button><button type="button" class="preset" data-basis="cohort" data-preset="mtd">Month to Date</button><button type="button" class="preset" data-basis="cohort" data-preset="last7">Last 7 Days</button><button type="button" class="preset" data-basis="cohort" data-preset="last30">Last 30 Days</button><button type="button" class="preset" data-basis="cohort" data-preset="last3months">Last 3 Months</button><button type="button" class="preset" data-basis="cohort" data-preset="custom">Custom Range</button><button type="button" class="preset" data-basis="cohort" data-preset="all">All Time</button>
         </div>
         <div class="slicer-column"><h3>Time Based</h3>
-          <button type="button" class="preset" data-preset="today">Today</button><button type="button" class="preset" data-preset="yesterday">Yesterday</button><button type="button" class="preset" data-preset="week">This Week</button><button type="button" class="preset" data-preset="mtd">Month to Date</button><button type="button" class="preset" data-preset="last7">Last 7 Days</button><button type="button" class="preset" data-preset="last30">Last 30 Days</button><button type="button" class="preset" data-preset="last3months">Last 3 Months</button><button type="button" class="preset" data-preset="custom">Custom Range</button><button type="button" class="preset" data-preset="all">All Time</button>
+          <button type="button" class="preset" data-basis="time" data-preset="today">Today</button><button type="button" class="preset" data-basis="time" data-preset="yesterday">Yesterday</button><button type="button" class="preset" data-basis="time" data-preset="week">This Week</button><button type="button" class="preset" data-basis="time" data-preset="mtd">Month to Date</button><button type="button" class="preset" data-basis="time" data-preset="last7">Last 7 Days</button><button type="button" class="preset" data-basis="time" data-preset="last30">Last 30 Days</button><button type="button" class="preset" data-basis="time" data-preset="last3months">Last 3 Months</button><button type="button" class="preset" data-basis="time" data-preset="custom">Custom Range</button><button type="button" class="preset" data-basis="time" data-preset="all">All Time</button>
         </div>
         <div class="date-fields" id="date-fields" hidden>
       <label for="start-date">From <input id="start-date" type="date" disabled required></label>
@@ -136,7 +136,11 @@ for (const input of [startDate, endDate]) {
   input.min = firstDate;
   input.max = lastDate;
 }
-let activeRange = ranges.all;
+let cohortRange = ranges.all;
+let timeRange = ranges.all;
+let cohortPreset = "All Time";
+let timePreset = "All Time";
+let customBasis = "cohort";
 vertical.innerHTML = '<option value="all">All verticals</option>' + verticals.map((name, index) => `<option value="${index}">${name}</option>`).join("");
 let selectedBde = null;
 let selectedDay = null;
@@ -155,14 +159,22 @@ function calendarDate(isoDate) {
   return new Date(isoDate + "T00:00:00Z");
 }
 
-function reportDays(bde, range) {
-  const start = calendarDate(range.start);
-  const dayCount = (calendarDate(range.end) - start) / millisecondsPerDay + 1;
+function inRange(key, range) { return key >= range.start && key <= range.end; }
+function reportDays(bde) {
+  const start = calendarDate(cohortRange.start < timeRange.start ? cohortRange.start : timeRange.start);
+  const end = calendarDate(cohortRange.end > timeRange.end ? cohortRange.end : timeRange.end);
+  const dayCount = (end - start) / millisecondsPerDay + 1;
   return Array.from({length: dayCount}, (_, offset) => {
     const date = new Date(start.getTime() + offset * millisecondsPerDay);
-    const record = dailyRecords[bde.id + "/" + date.toISOString().slice(0, 10)] ?? {};
+    const key = date.toISOString().slice(0, 10);
+    const record = dailyRecords[bde.id + "/" + key] ?? {};
     const hours = record.hours ?? [];
-    return {...total(hours), ...record, date: dayFormat.format(date), hours};
+    const cohortActive = inRange(key, cohortRange);
+    const timeActive = inRange(key, timeRange);
+    const row = {...total(timeActive ? hours : []), ...record, date: dayFormat.format(date), hours: timeActive ? hours : []};
+    if (!cohortActive) for (const field of ["arrived", "leads", "hot", "deadJunk", "cold", "warm", "enrolled", "sales", "nbfcApproved", "nbfcRejected", "saleValue"]) row[field] = 0;
+    if (!timeActive) { row.followups = 0; row.revenue = 0; }
+    return row;
   });
 }
 
@@ -203,22 +215,22 @@ function table(title, headers, rows, {note = "", footer = "", textCols = [], scr
     </table></div></section>`;
 }
 
-function renderOverview(range) {
+function renderOverview() {
   const members = team.filter(member => vertical.value === "all" || member.vertical === Number(vertical.value))
-    .map(member => ({...member, summary: total(reportDays(member, range))}));
+    .map(member => ({...member, summary: total(reportDays(member))}));
   const groups = verticals.map((name, index) => ({
     name, index, members: members.filter(member => member.vertical === index),
   })).filter(group => vertical.value === "all" || group.index === Number(vertical.value));
   const groupSummaries = groups.map(group => ({...group, summary: total(group.members.map(member => member.summary))}))
     .sort((a, b) => b.summary.saleValue - a.summary.saleValue || b.summary.revenue - a.summary.revenue);
-  const memberDays = members.map(member => reportDays(member, range));
+  const memberDays = members.map(member => reportDays(member));
   const trend = memberDays.length ? memberDays[0].map((day, index) => total(memberDays.map(days => days[index]))) : [];
   const trendMax = Math.max(1, ...trend.flatMap(day => [day.saleValue, day.revenue]));
   const trendPoints = key => trend.map((day, index) => `${30 + (trend.length < 2 ? 0 : 900 * index / (trend.length - 1))},${190 - 145 * (day[key] || 0) / trendMax}`).join(" ");
   const trendArea = key => `30,190 ${trendPoints(key)} 930,190`;
-  const trendVisual = `<section class="panel"><div class="section-head"><h3>Sale value and Revenue area chart</h3></div><div class="trend-chart"><div class="trend-key"><span><i style="background:#6d55b6"></i>Sale value</span><span><i style="background:#1687a7"></i>Revenue</span></div><svg viewBox="0 0 960 230" role="img" aria-label="Sale value and Revenue area chart over the selected period"><line class="trend-grid" x1="30" y1="45" x2="930" y2="45"/><line class="trend-grid" x1="30" y1="118" x2="930" y2="118"/><line class="trend-grid" x1="30" y1="190" x2="930" y2="190"/><polygon class="trend-sale-area" points="${trendArea("saleValue")}"/><polygon class="trend-revenue-area" points="${trendArea("revenue")}"/><polyline class="trend-sale" points="${trendPoints("saleValue")}"/><polyline class="trend-revenue" points="${trendPoints("revenue")}"/><text class="trend-label" x="30" y="218">${range.start}</text><text class="trend-label" x="930" y="218" text-anchor="end">${range.end}</text></svg></div></section>`;
+  const trendVisual = `<section class="panel"><div class="section-head"><h3>Sale value and Revenue area chart</h3></div><div class="trend-chart"><div class="trend-key"><span><i style="background:#6d55b6"></i>Sale value</span><span><i style="background:#1687a7"></i>Revenue</span></div><svg viewBox="0 0 960 230" role="img" aria-label="Sale value and Revenue area chart over the selected period"><line class="trend-grid" x1="30" y1="45" x2="930" y2="45"/><line class="trend-grid" x1="30" y1="118" x2="930" y2="118"/><line class="trend-grid" x1="30" y1="190" x2="930" y2="190"/><polygon class="trend-sale-area" points="${trendArea("saleValue")}"/><polygon class="trend-revenue-area" points="${trendArea("revenue")}"/><polyline class="trend-sale" points="${trendPoints("saleValue")}"/><polyline class="trend-revenue" points="${trendPoints("revenue")}"/><text class="trend-label" x="30" y="218">Cohort ${rangeLabel(cohortRange)}</text><text class="trend-label" x="930" y="218" text-anchor="end">Time ${rangeLabel(timeRange)}</text></svg></div></section>`;
   const top = (label, entry, value, note = "") => `<article class="leader-card"><span>${label}</span><strong>${entry?.name || "—"}</strong><b>${value}</b>${note ? `<small>${note}</small>` : ""}</article>`;
-  const leaderCards = group => { const ranked = group.members.map(member => ({...member, summary: member.summary})); const highest = key => ranked.slice().sort((a, b) => b.summary[key] - a.summary[key])[0]; const callDays = group.members.flatMap(member => reportDays(member, range).map(day => ({member, day}))).sort((a, b) => b.day.attempts - a.day.attempts); return `<div class="leader-grid">${top("Highest total talk time", highest("talk"), duration(highest("talk")?.summary.talk || 0))}${top("Highest sales count", highest("sales"), number.format(highest("sales")?.summary.sales || 0))}${top("Highest sale value", highest("saleValue"), rupees.format(highest("saleValue")?.summary.saleValue || 0))}${top("Highest revenue", highest("revenue"), rupees.format(highest("revenue")?.summary.revenue || 0))}${top("Highest calls in a day", callDays[0]?.member, number.format(callDays[0]?.day.attempts || 0), callDays[0]?.day.date || "")}</div>`; };
+  const leaderCards = group => { const ranked = group.members.map(member => ({...member, summary: member.summary})); const highest = key => ranked.slice().sort((a, b) => b.summary[key] - a.summary[key])[0]; const callDays = group.members.flatMap(member => reportDays(member).map(day => ({member, day}))).sort((a, b) => b.day.attempts - a.day.attempts); return `<div class="leader-grid">${top("Highest total talk time", highest("talk"), duration(highest("talk")?.summary.talk || 0))}${top("Highest sales count", highest("sales"), number.format(highest("sales")?.summary.sales || 0))}${top("Highest sale value", highest("saleValue"), rupees.format(highest("saleValue")?.summary.saleValue || 0))}${top("Highest revenue", highest("revenue"), rupees.format(highest("revenue")?.summary.revenue || 0))}${top("Highest calls in a day", callDays[0]?.member, number.format(callDays[0]?.day.attempts || 0), callDays[0]?.day.date || "")}</div>`; };
   const leaders = `<section class="panel"><div class="section-head"><h3>Top performers by vertical</h3></div>${groups.map(group => `<div class="leader-vertical"><h4>${group.name}</h4>${leaderCards(group)}</div>`).join("")}</section>`;
   return `${metrics(total(members.map(member => member.summary)), [["BDEs", members.length]])}
   ${table("Vertical performance", ["Vertical", "Manager", "BDEs", "Leads arrived", "Call attempts", "Enrolled", "Sale value", "Revenue", ""],
@@ -241,7 +253,7 @@ function verticalTitle(index) {
 
 function performanceRows(members) {
   return members.map(member => {
-    const summary = total(reportDays(member, activeRange));
+    const summary = total(reportDays(member));
     return {member, summary};
   }).sort((a, b) => b.summary.saleValue - a.summary.saleValue || b.summary.revenue - a.summary.revenue || b.summary.leads - a.summary.leads)
     .map(({member, summary}) => [member.name, number.format(summary.leads), number.format(summary.arrived), number.format(summary.attempts), number.format(summary.connected), number.format(summary.enrolled), rupees.format(summary.saleValue), rupees.format(summary.revenue), action("Open report →", "bde", member.id)]);
@@ -249,17 +261,17 @@ function performanceRows(members) {
 
 function renderVerticalScreen(index) {
   const members = team.filter(member => member.vertical === index);
-  const summary = total(members.map(member => total(reportDays(member, activeRange))));
+  const summary = total(members.map(member => total(reportDays(member))));
   const groups = [...new Set(members.map(leadLabel))].map(lead => ({lead, members: members.filter(member => leadLabel(member) === lead)}));
   return `<h2 tabindex="-1">${verticalTitle(index)}</h2><p class="muted">Team performance and individual BDE reports</p>
     ${metrics(summary, [["BDEs", members.length], ["Leads received", number.format(summary.leads)]])}
-    ${table("Team performance", ["Team Lead", "BDEs", "Leads received", "Leads arrived", "Call attempts", "Sale value", "Revenue", ""], groups.map(group => { const value = total(group.members.map(member => total(reportDays(member, activeRange)))); return [group.lead, group.members.length, number.format(value.leads), number.format(value.arrived), number.format(value.attempts), rupees.format(value.saleValue), rupees.format(value.revenue), action("View team →", "team", `${index}|${group.lead}`)]; }), {textCols:[0,7], scrollable:false, className:"vertical-table"})}
+    ${table("Team performance", ["Team Lead", "BDEs", "Leads received", "Leads arrived", "Call attempts", "Sale value", "Revenue", ""], groups.map(group => { const value = total(group.members.map(member => total(reportDays(member)))); return [group.lead, group.members.length, number.format(value.leads), number.format(value.arrived), number.format(value.attempts), rupees.format(value.saleValue), rupees.format(value.revenue), action("View team →", "team", `${index}|${group.lead}`)]; }), {textCols:[0,7], scrollable:false, className:"vertical-table"})}
     ${table("Individual BDE performance", ["BDE", "Leads received", "Leads arrived", "Call attempts", "Connected", "Enrolled", "Sale value", "Revenue", ""], performanceRows(members), {textCols:[0,8], scrollable:false, className:"vertical-table"})}`;
 }
 
 function renderTeamScreen(index, lead) {
   const members = team.filter(member => member.vertical === index && leadLabel(member) === lead);
-  const summary = total(members.map(member => total(reportDays(member, activeRange))));
+  const summary = total(members.map(member => total(reportDays(member))));
   return `<h2 tabindex="-1">${lead} · Team performance</h2><p class="muted">${verticalTitle(index)}</p>
     ${metrics(summary, [["BDEs", members.length], ["Leads received", number.format(summary.leads)]])}
     ${table("Individual BDE performance", ["BDE", "Leads received", "Leads arrived", "Call attempts", "Connected", "Enrolled", "Sale value", "Revenue", ""], performanceRows(members), {textCols:[0,8], scrollable:false, className:"vertical-table"})}`;
@@ -299,7 +311,7 @@ function render(focusHeading = false) {
   backButton.hidden = selectedBde === null && selectedVerticalScreen === null && vertical.value === "all";
   backButton.textContent = selectedDay !== null ? "← Back to BDE report" : selectedBde !== null ? (selectedLead !== null ? "← Back to team performance" : "← Back to vertical performance") : selectedLead !== null ? "← Back to vertical performance" : "← Back to overview";
   const bde = team.find(member => member.id === selectedBde);
-  const days = bde ? reportDays(bde, activeRange).sort((a, b) => b.saleValue - a.saleValue || b.revenue - a.revenue || b.arrived - a.arrived) : [];
+  const days = bde ? reportDays(bde).sort((a, b) => b.saleValue - a.saleValue || b.revenue - a.revenue || b.arrived - a.arrived) : [];
   if (selectedBde !== null && bde) {
     breadcrumb.hidden = false;
     breadcrumb.innerHTML = selectedDay === null ? '<span aria-current="page">BDE report</span>' : action("BDE report", "weekly") + '<span>›</span><span aria-current="page">Daily detail</span>';
@@ -315,7 +327,7 @@ function render(focusHeading = false) {
   } else {
     breadcrumb.hidden = true;
     breadcrumb.innerHTML = "";
-    report.innerHTML = renderOverview(activeRange);
+    report.innerHTML = renderOverview();
   }
   if (focusHeading) report.querySelector("h2")?.focus();
 }
@@ -362,10 +374,16 @@ function rangeLabel(range) {
   return rangeFormat.format(start) + " – " + rangeFormat.format(end);
 }
 
-function applyRange(range) {
-  activeRange = range;
+function updateSlicerLabel() {
+  dateSlicerLabel.textContent = `Cohort: ${cohortPreset} · Time: ${timePreset}`;
+}
+
+function applyRange(basis, range, label) {
+  if (basis === "cohort") { cohortRange = range; cohortPreset = label; }
+  else { timeRange = range; timePreset = label; }
   selectedDay = null;
   rangeError.hidden = true;
+  updateSlicerLabel();
   render();
 }
 
@@ -400,19 +418,21 @@ function rangeForPreset(preset) {
 const presetLabels = {today: "Today", yesterday: "Yesterday", week: "This Week", mtd: "Month to Date", last7: "Last 7 Days", last30: "Last 30 Days", last3months: "Last 3 Months", all: "All Time", custom: "Custom Range"};
 document.querySelectorAll(".preset").forEach(button => button.addEventListener("click", () => {
   const preset = button.dataset.preset;
-  dateSlicerLabel.textContent = presetLabels[preset];
+  const basis = button.dataset.basis;
   if (preset === "custom") {
+    customBasis = basis;
     dateFields.hidden = false;
     startDate.disabled = endDate.disabled = false;
-    startDate.value = activeRange.start;
-    endDate.value = activeRange.end;
+    const current = basis === "cohort" ? cohortRange : timeRange;
+    startDate.value = current.start;
+    endDate.value = current.end;
     startDate.focus();
     return;
   }
   dateFields.hidden = true;
   startDate.disabled = endDate.disabled = true;
   dateSlicer.open = false;
-  applyRange(rangeForPreset(preset));
+  applyRange(basis, rangeForPreset(preset), presetLabels[preset]);
 }));
 
 document.querySelector("#filters").addEventListener("submit", event => {
@@ -424,10 +444,9 @@ document.querySelector("#filters").addEventListener("submit", event => {
     return;
   }
   dateSlicer.open = false;
-  applyRange({start: startDate.value, end: endDate.value});
+  applyRange(customBasis, {start: startDate.value, end: endDate.value}, "Custom Range");
 });
 resetFilters.addEventListener("click", () => {
-  dateSlicerLabel.textContent = "All Time";
   dateSlicer.open = false;
   dateFields.hidden = true;
   startDate.disabled = endDate.disabled = true;
@@ -436,7 +455,11 @@ resetFilters.addEventListener("click", () => {
   selectedDay = null;
   selectedVerticalScreen = null;
   selectedLead = null;
-  applyRange(ranges.all);
+  cohortRange = ranges.all;
+  timeRange = ranges.all;
+  cohortPreset = "All Time";
+  timePreset = "All Time";
+  applyRange("cohort", ranges.all, "All Time");
 });
 vertical.addEventListener("change", () => {
   selectedDay = null;
@@ -445,6 +468,7 @@ vertical.addEventListener("change", () => {
   selectedLead = null;
   render();
 });
+updateSlicerLabel();
 render();
 </script>
 </body>
