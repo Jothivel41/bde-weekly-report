@@ -77,6 +77,7 @@ def main():
    financial = revenue_by_bde_day.get((u['name'], dt), {})
    daily.append(dict(bde_id=u['id'],date=dt,followups=completed[k],pending=None,
                      stageMoves=None,enrolled=enrolled[k],
+                     sales=int(financial.get('sales', 0)),
                      saleValue=str(financial.get('saleValue', 0)),
                      revenue=str(financial.get('collections', 0))))
  name_matches=[r['crm_name'] for r in mappings if r['basis'].startswith('Unique')]

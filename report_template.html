@@ -42,6 +42,7 @@ p{margin:0}
 .card{background:white;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:68px}
 .card span{display:block;color:var(--muted);font-size:.78rem;line-height:1.2}
 .card strong{display:block;font-size:1.25rem;line-height:1.25;margin-top:4px;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.leader-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:0 14px 14px}.leader-card{border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:linear-gradient(135deg,#fff 0%,#f3f7fb 100%);min-width:0}.leader-card span{display:block;color:var(--muted);font-size:.76rem}.leader-card strong{display:block;margin-top:6px;color:var(--accent);font-size:1rem;overflow-wrap:anywhere}.leader-card b{display:block;margin-top:5px;font-size:1.05rem;font-variant-numeric:tabular-nums}.leader-card small{color:var(--muted);font-size:.74rem}
 .panel{margin-top:14px;overflow:hidden}
 .section-head{padding:12px 16px}
 .scroll{overflow:auto}
@@ -64,9 +65,9 @@ tfoot td,tfoot th{background:var(--pale);font-weight:700}
 .team-chart{padding:2px 16px 16px;display:grid;gap:10px}.team-chart-row{display:grid;grid-template-columns:130px repeat(3,minmax(0,1fr));gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}.team-chart-row:first-child{border-top:0}.team-metric{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center}.team-metric span{font-size:.78rem;color:var(--muted);grid-column:1/-1}.team-metric .bar-track{height:8px}.team-metric strong{font-size:.85rem;white-space:nowrap}.team-metric.arrived .bar-fill{background:#0a675d}.team-metric.sales .bar-fill{background:#6d55b6}.team-metric.revenue .bar-fill{background:#1687a7}
 .trend-chart{padding:4px 16px 16px}.trend-key{display:flex;gap:14px;font-size:.86rem;font-weight:700;margin-bottom:6px}.trend-key i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}.trend-chart svg{width:100%;height:230px;display:block}.trend-grid{stroke:#dce5ed;stroke-width:1}.trend-sale{fill:none;stroke:#6d55b6;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.trend-revenue{fill:none;stroke:#1687a7;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.trend-label{fill:#58677b;font-size:13px}
 dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(520px,calc(100% - 32px));box-shadow:0 20px 45px #18263a40}dialog::backdrop{background:#18263a55}.dialog-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--line)}.dialog-head button{border:0;background:transparent;font-size:1.4rem;color:var(--muted)}.dialog-body{display:flex;flex-wrap:wrap;gap:9px;padding:16px}.dialog-body button{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:white;color:var(--accent);font-weight:700}.lead-picker{display:grid;width:100%;gap:10px}.lead-picker button{text-align:left;padding:13px 14px}.lead-picker small{display:block;color:var(--muted);font-weight:400;margin-top:3px}.dialog-back{font-size:.9rem!important;font-weight:700!important;color:var(--accent)!important;margin-right:auto}
-@media(max-width:1100px){.cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1100px){.cards,.leader-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:850px){.split,.visual-grid{grid-template-columns:1fr}.donut-wrap{grid-template-columns:1fr;justify-items:center}.slicer-menu{grid-template-columns:1fr}.team-chart-row{grid-template-columns:1fr}.team-metric{grid-template-columns:1fr auto}}
-@media(max-width:540px){.wrap{width:calc(100% - 24px)}.tools label{width:100%;justify-content:space-between}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:8px}}
+@media(max-width:540px){.wrap{width:calc(100% - 24px)}.tools label{width:100%;justify-content:space-between}.cards,.leader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:8px}}
 </style>
 </head>
 <body>
@@ -113,7 +114,7 @@ const lastDate = coverage.end;
 const millisecondsPerDay = 86400000;
 
 const leadStages = [["hot", "Hot"], ["deadJunk", "Dead/Junk"], ["cold", "Cold"], ["warm", "Warm"]];
-const measures = ["arrived", "leads", "attempts", "connected", "followups", "stageMoves", "enrolled", "saleValue", "revenue", "talk", ...leadStages.map(([key]) => key)];
+const measures = ["arrived", "leads", "attempts", "connected", "followups", "stageMoves", "enrolled", "sales", "saleValue", "revenue", "talk", ...leadStages.map(([key]) => key)];
 const integerFormat = new Intl.NumberFormat("en-IN");
 const number = {format: value => value == null ? "—" : integerFormat.format(value)};
 const currency = new Intl.NumberFormat("en-IN", {style: "currency", currency: "INR"});
@@ -215,6 +216,11 @@ function renderOverview(range) {
   const trendMax = Math.max(1, ...trend.flatMap(day => [day.saleValue, day.revenue]));
   const trendPoints = key => trend.map((day, index) => `${30 + (trend.length < 2 ? 0 : 900 * index / (trend.length - 1))},${190 - 145 * (day[key] || 0) / trendMax}`).join(" ");
   const trendVisual = `<section class="panel"><div class="section-head"><h3>Sale value and Revenue trend</h3></div><div class="trend-chart"><div class="trend-key"><span><i style="background:#6d55b6"></i>Sale value</span><span><i style="background:#1687a7"></i>Revenue</span></div><svg viewBox="0 0 960 230" role="img" aria-label="Sale value and Revenue over the selected period"><line class="trend-grid" x1="30" y1="45" x2="930" y2="45"/><line class="trend-grid" x1="30" y1="118" x2="930" y2="118"/><line class="trend-grid" x1="30" y1="190" x2="930" y2="190"/><polyline class="trend-sale" points="${trendPoints("saleValue")}"/><polyline class="trend-revenue" points="${trendPoints("revenue")}"/><text class="trend-label" x="30" y="218">${range.start}</text><text class="trend-label" x="930" y="218" text-anchor="end">${range.end}</text></svg></div></section>`;
+  const ranked = members.map(member => ({...member, summary: member.summary}));
+  const highest = key => ranked.slice().sort((a, b) => b.summary[key] - a.summary[key])[0];
+  const callDays = members.flatMap(member => reportDays(member, range).map(day => ({member, day}))).sort((a, b) => b.day.attempts - a.day.attempts);
+  const top = (label, entry, value, note = "") => `<article class="leader-card"><span>${label}</span><strong>${entry?.name || "—"}</strong><b>${value}</b>${note ? `<small>${note}</small>` : ""}</article>`;
+  const leaders = `<section class="panel"><div class="section-head"><h3>Top performers</h3><p class="muted">Updates automatically for the selected date range.</p></div><div class="leader-grid">${top("Highest talk time", highest("talk"), duration(highest("talk")?.summary.talk || 0))}${top("Highest sales count", highest("sales"), number.format(highest("sales")?.summary.sales || 0))}${top("Highest sale value", highest("saleValue"), rupees.format(highest("saleValue")?.summary.saleValue || 0))}${top("Highest revenue", highest("revenue"), rupees.format(highest("revenue")?.summary.revenue || 0))}${top("Highest calls in a day", callDays[0]?.member, number.format(callDays[0]?.day.attempts || 0), callDays[0]?.day.date || "")}</div></section>`;
   return `${metrics(total(members.map(member => member.summary)), [["BDEs", members.length]])}
   ${table("Vertical performance", ["Vertical", "Manager", "BDEs", "Leads arrived", "Call attempts", "Enrolled", "Sale value", "Revenue", ""],
     groupSummaries.map(group => {
@@ -222,6 +228,7 @@ function renderOverview(range) {
       return [group.name, verticalManagers[group.name] || "", group.members.length, number.format(summary.arrived), number.format(summary.attempts), number.format(summary.enrolled), rupees.format(summary.saleValue), rupees.format(summary.revenue),
         action("Open BDE reports →", "vertical", group.index)];
     }), {textCols: [1, 8], scrollable: false, className: "vertical-table"})}
+  ${leaders}
   ${trendVisual}`;
 }
 
