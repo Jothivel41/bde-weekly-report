@@ -23,7 +23,7 @@ h1{font-size:clamp(2rem,4vw,2.8rem);line-height:1.15;margin:18px 0 0;letter-spac
 main{padding:22px 0 40px}
 .tools,.panel{border:1px solid var(--line);background:var(--paper);border-radius:12px}
 .tools{justify-content:flex-end;padding:0;margin-bottom:17px;border:0;background:transparent;position:relative}
-.slicer-toggle,.filter-select{border:1px solid var(--line);border-radius:10px;background:white;color:var(--ink);font-weight:700;padding:8px 11px;min-height:36px;font-size:.9rem}.slicer-toggle{min-width:175px;text-align:left}.date-slicer{position:relative}.date-slicer summary{list-style:none}.date-slicer summary::-webkit-details-marker{display:none}.date-slicer[open] .slicer-toggle{border-color:#7656db;box-shadow:0 0 0 2px #ede8ff}.slicer-menu{position:absolute;right:0;top:44px;z-index:10;width:min(540px,calc(100vw - 48px));display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:10px;background:white;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 26px #18263a2b}.slicer-column{border:1px solid #e4e9ef;border-radius:10px;padding:8px}.slicer-column h3{padding:3px 7px 7px;border-bottom:1px solid var(--line);font-size:.95rem}.preset{display:block;width:100%;padding:5px 7px;text-align:left;background:transparent;border:0;border-radius:6px;color:var(--ink);font:inherit;font-size:.88rem}.preset:hover,.preset:focus-visible{background:#eee9ff;color:#6247d8;font-weight:700}.date-fields{grid-column:1/-1;padding:2px 5px 0}
+.slicer-toggle,.filter-select{border:1px solid var(--line);border-radius:10px;background:white;color:var(--ink);font-weight:700;padding:8px 11px;min-height:36px;font-size:.9rem}.slicer-toggle{min-width:255px;text-align:left}.date-slicer{position:relative}.date-slicer summary{list-style:none}.date-slicer summary::-webkit-details-marker{display:none}.date-slicer[open] .slicer-toggle{border-color:#7656db;box-shadow:0 0 0 2px #ede8ff}.slicer-menu{position:absolute;right:0;top:44px;z-index:10;width:min(540px,calc(100vw - 48px));display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:10px;background:white;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 26px #18263a2b}.slicer-column{border:1px solid #e4e9ef;border-radius:10px;padding:8px}.slicer-column h3{padding:3px 7px 7px;border-bottom:1px solid var(--line);font-size:.95rem}.preset{display:block;width:100%;padding:5px 7px;text-align:left;background:transparent;border:0;border-radius:6px;color:var(--ink);font:inherit;font-size:.88rem}.preset:hover,.preset:focus-visible,.preset.is-pending{background:#eee9ff;color:#6247d8;font-weight:700}.date-fields{grid-column:1/-1;padding:2px 5px 0}.slicer-actions{grid-column:1/-1;display:flex;justify-content:flex-end;border-top:1px solid var(--line);padding-top:8px}.slicer-actions .apply{min-width:100px}
 label{display:flex;align-items:center;gap:8px;font-weight:600}
 select,input,button{font:inherit}
 select,input[type="date"]{border:1px solid #bac9d8;border-radius:6px;padding:6px 9px;background:white;color:var(--ink)}
@@ -92,8 +92,8 @@ dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(520px
         <div class="date-fields" id="date-fields" hidden>
       <label for="start-date">From <input id="start-date" type="date" disabled required></label>
       <label for="end-date">To <input id="end-date" type="date" disabled required></label>
-      <button class="apply" type="submit">Apply dates</button>
         </div>
+        <div class="slicer-actions"><button class="apply" type="submit">Apply</button></div>
       </div>
     </details>
     <label for="vertical"><select class="filter-select" id="vertical" aria-label="Vertical"></select></label>
@@ -140,7 +140,12 @@ let cohortRange = ranges.all;
 let timeRange = ranges.all;
 let cohortPreset = "All Time";
 let timePreset = "All Time";
+let pendingCohortRange = ranges.all;
+let pendingTimeRange = ranges.all;
+let pendingCohortPreset = "All Time";
+let pendingTimePreset = "All Time";
 let customBasis = "cohort";
+let customPending = false;
 vertical.innerHTML = '<option value="all">All verticals</option>' + verticals.map((name, index) => `<option value="${index}">${name}</option>`).join("");
 let selectedBde = null;
 let selectedDay = null;
@@ -378,12 +383,29 @@ function updateSlicerLabel() {
   dateSlicerLabel.textContent = `Cohort: ${cohortPreset} · Time: ${timePreset}`;
 }
 
-function applyRange(basis, range, label) {
-  if (basis === "cohort") { cohortRange = range; cohortPreset = label; }
-  else { timeRange = range; timePreset = label; }
+function setPendingRange(basis, range, label) {
+  if (basis === "cohort") { pendingCohortRange = range; pendingCohortPreset = label; }
+  else { pendingTimeRange = range; pendingTimePreset = label; }
+  updatePendingButtons();
+}
+
+function updatePendingButtons() {
+  document.querySelectorAll(".preset").forEach(button => {
+    const label = presetLabels[button.dataset.preset];
+    const selected = button.dataset.basis === "cohort" ? pendingCohortPreset : pendingTimePreset;
+    button.classList.toggle("is-pending", label === selected);
+  });
+}
+
+function applyPendingRanges() {
+  cohortRange = pendingCohortRange;
+  timeRange = pendingTimeRange;
+  cohortPreset = pendingCohortPreset;
+  timePreset = pendingTimePreset;
   selectedDay = null;
   rangeError.hidden = true;
   updateSlicerLabel();
+  dateSlicer.open = false;
   render();
 }
 
@@ -421,30 +443,34 @@ document.querySelectorAll(".preset").forEach(button => button.addEventListener("
   const basis = button.dataset.basis;
   if (preset === "custom") {
     customBasis = basis;
+    customPending = true;
     dateFields.hidden = false;
     startDate.disabled = endDate.disabled = false;
-    const current = basis === "cohort" ? cohortRange : timeRange;
+    const current = basis === "cohort" ? pendingCohortRange : pendingTimeRange;
     startDate.value = current.start;
     endDate.value = current.end;
+    updatePendingButtons();
     startDate.focus();
     return;
   }
+  customPending = false;
   dateFields.hidden = true;
   startDate.disabled = endDate.disabled = true;
-  dateSlicer.open = false;
-  applyRange(basis, rangeForPreset(preset), presetLabels[preset]);
+  setPendingRange(basis, rangeForPreset(preset), presetLabels[preset]);
 }));
 
 document.querySelector("#filters").addEventListener("submit", event => {
   event.preventDefault();
-  if (startDate.value < firstDate || endDate.value > lastDate || startDate.value > endDate.value) {
-    rangeError.textContent = "Choose dates within the available range, with the end on or after the start.";
-    rangeError.hidden = false;
-    endDate.focus();
-    return;
+  if (customPending) {
+    if (startDate.value < firstDate || endDate.value > lastDate || startDate.value > endDate.value) {
+      rangeError.textContent = "Choose dates within the available range, with the end on or after the start.";
+      rangeError.hidden = false;
+      endDate.focus();
+      return;
+    }
+    setPendingRange(customBasis, {start: startDate.value, end: endDate.value}, "Custom Range");
   }
-  dateSlicer.open = false;
-  applyRange(customBasis, {start: startDate.value, end: endDate.value}, "Custom Range");
+  applyPendingRanges();
 });
 resetFilters.addEventListener("click", () => {
   dateSlicer.open = false;
@@ -457,9 +483,15 @@ resetFilters.addEventListener("click", () => {
   selectedLead = null;
   cohortRange = ranges.all;
   timeRange = ranges.all;
+  pendingCohortRange = ranges.all;
+  pendingTimeRange = ranges.all;
   cohortPreset = "All Time";
   timePreset = "All Time";
-  applyRange("cohort", ranges.all, "All Time");
+  pendingCohortPreset = "All Time";
+  pendingTimePreset = "All Time";
+  customPending = false;
+  updatePendingButtons();
+  applyPendingRanges();
 });
 vertical.addEventListener("change", () => {
   selectedDay = null;
@@ -469,6 +501,7 @@ vertical.addEventListener("change", () => {
   render();
 });
 updateSlicerLabel();
+updatePendingButtons();
 render();
 </script>
 </body>
