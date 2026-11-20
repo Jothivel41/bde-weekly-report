@@ -64,21 +64,21 @@ def main():
  assert len({r['call_id'] for r in calls})==len(calls)
  completed=Counter((r['assignedToId'],day(r['completedAt']).isoformat()) for r in read('followups_snapshot.json')['data'] if r.get('assignedToId') in ids and r.get('status')=='completed' and in_week(r.get('completedAt')))
  enrolled=Counter((r['assignedToId'],day(r['enrollmentDate']).isoformat()) for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled' and in_week(r['enrollmentDate']))
- # A sale is an enrolled lead, including live NBFC processing/completed statuses;
- # rejected NBFC applications do not count as a sale.  Use the enrollment event
- # date first, then the stage-entry timestamp when the CRM has no enrollment date.
- sales=Counter((r['assignedToId'],day(r.get('enrollmentDate') or r.get('stageEnteredAt')).isoformat())
-               for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
-               and r.get('status') != 'nbfc_rejected'
-               and in_week(r.get('enrollmentDate') or r.get('stageEnteredAt')))
- approved=Counter((r['assignedToId'],day(r.get('enrollmentDate') or r.get('stageEnteredAt')).isoformat())
-                  for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
-                  and r.get('status') == 'nbfc_completed'
-                  and in_week(r.get('enrollmentDate') or r.get('stageEnteredAt')))
- rejected=Counter((r['assignedToId'],day(r.get('enrollmentDate') or r.get('stageEnteredAt')).isoformat())
-                  for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
-                  and r.get('status') == 'nbfc_rejected'
-                  and in_week(r.get('enrollmentDate') or r.get('stageEnteredAt')))
+ # A sale is an enrolled lead dated by its actual enrollment event.  Rejected
+ # NBFC applications do not count as a sale; a later stage change never creates
+ # another sale for a previously enrolled lead.
+ sales=Counter((r['assignedToId'],day(r['enrollmentDate']).isoformat())
+                for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
+                and r.get('status') != 'nbfc_rejected'
+                and in_week(r.get('enrollmentDate')))
+ approved=Counter((r['assignedToId'],day(r['enrollmentDate']).isoformat())
+                   for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
+                   and r.get('status') == 'nbfc_completed'
+                   and in_week(r.get('enrollmentDate')))
+ rejected=Counter((r['assignedToId'],day(r['enrollmentDate']).isoformat())
+                   for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
+                   and r.get('status') == 'nbfc_rejected'
+                   and in_week(r.get('enrollmentDate')))
  # Financial reporting uses the payment ledger, not the aggregate Revenue
  # Dashboard.  A sale is counted once per covered enrollment/lead on its
  # enrollment date; revenue uses each actual paymentDate and amountReceived.
