@@ -139,6 +139,8 @@ let activeRange = ranges.all;
 vertical.innerHTML = '<option value="all">All verticals</option>' + verticals.map((name, index) => `<option value="${index}">${name}</option>`).join("");
 let selectedBde = null;
 let selectedDay = null;
+let selectedVerticalScreen = null;
+let selectedLead = null;
 
 function total(records) {
   const sums = Object.fromEntries(measures.map(key => [
@@ -223,6 +225,40 @@ function renderOverview(range) {
   ${trendVisual}`;
 }
 
+function leadLabel(member) {
+  return member.lead || `Direct to ${verticalManagers[verticals[member.vertical]] || "manager"}`;
+}
+
+function verticalTitle(index) {
+  return verticals[index] === "Govt Central" ? "RRB, SSC & Banking · Dilip Kumar" : `${verticals[index]} · ${verticalManagers[verticals[index]] || ""}`;
+}
+
+function performanceRows(members) {
+  return members.map(member => {
+    const summary = total(reportDays(member, activeRange));
+    return {member, summary};
+  }).sort((a, b) => b.summary.saleValue - a.summary.saleValue || b.summary.revenue - a.summary.revenue || b.summary.leads - a.summary.leads)
+    .map(({member, summary}) => [member.name, number.format(summary.leads), number.format(summary.arrived), number.format(summary.attempts), number.format(summary.connected), number.format(summary.enrolled), rupees.format(summary.saleValue), rupees.format(summary.revenue), action("Open report →", "bde", member.id)]);
+}
+
+function renderVerticalScreen(index) {
+  const members = team.filter(member => member.vertical === index);
+  const summary = total(members.map(member => total(reportDays(member, activeRange))));
+  const groups = [...new Set(members.map(leadLabel))].map(lead => ({lead, members: members.filter(member => leadLabel(member) === lead)}));
+  return `<h2 tabindex="-1">${verticalTitle(index)}</h2><p class="muted">Team performance and individual BDE reports</p>
+    ${metrics(summary, [["BDEs", members.length], ["Leads received", number.format(summary.leads)]])}
+    ${table("Team performance", ["Team Lead", "BDEs", "Leads received", "Leads arrived", "Call attempts", "Sale value", "Revenue", ""], groups.map(group => { const value = total(group.members.map(member => total(reportDays(member, activeRange)))); return [group.lead, group.members.length, number.format(value.leads), number.format(value.arrived), number.format(value.attempts), rupees.format(value.saleValue), rupees.format(value.revenue), action("View team →", "team", `${index}|${group.lead}`)]; }), {textCols:[0,7], scrollable:false, className:"vertical-table"})}
+    ${table("Individual BDE performance", ["BDE", "Leads received", "Leads arrived", "Call attempts", "Connected", "Enrolled", "Sale value", "Revenue", ""], performanceRows(members), {textCols:[0,8], scrollable:false, className:"vertical-table"})}`;
+}
+
+function renderTeamScreen(index, lead) {
+  const members = team.filter(member => member.vertical === index && leadLabel(member) === lead);
+  const summary = total(members.map(member => total(reportDays(member, activeRange))));
+  return `<h2 tabindex="-1">${lead} · Team performance</h2><p class="muted">${verticalTitle(index)}</p>
+    ${metrics(summary, [["BDEs", members.length], ["Leads received", number.format(summary.leads)]])}
+    ${table("Individual BDE performance", ["BDE", "Leads received", "Leads arrived", "Call attempts", "Connected", "Enrolled", "Sale value", "Revenue", ""], performanceRows(members), {textCols:[0,8], scrollable:false, className:"vertical-table"})}`;
+}
+
 function renderBde(bde, days) {
   days = days.slice().sort((a, b) => b.saleValue - a.saleValue || b.revenue - a.revenue || b.arrived - a.arrived);
   return `<h2 tabindex="-1">${bde.name} · Productivity</h2>
@@ -253,35 +289,27 @@ function renderDaily(bde, day) {
     </div>`;
 }
 
-function showBdePicker(verticalIndex, lead = null) {
-  const selected = team.filter(member => member.vertical === verticalIndex);
-  const verticalName = verticals[verticalIndex];
-  if (verticalName === "Govt State" && lead === null) {
-    const leads = [...new Set(selected.map(member => member.lead).filter(Boolean))];
-    bdeDialog.innerHTML = `<div class="dialog-head"><h3>${verticalName} · Team Leads</h3><button type="button" data-action="close-dialog" aria-label="Close">×</button></div><div class="dialog-body"><p class="muted">Choose a Team Lead to view their BDE reports.</p><div class="lead-picker">${leads.map(name => action(`${name}<small>View BDE reports →</small>`, "lead", `${verticalIndex}|${name}`)).join("")}</div></div>`;
-  } else {
-    const bdes = lead === null ? selected : selected.filter(member => member.lead === lead);
-    const back = verticalName === "Govt State" ? action("← Team Leads", "lead-menu", verticalIndex) : "";
-    bdeDialog.innerHTML = `<div class="dialog-head">${back}<h3>${lead ? `${lead} · BDE reports` : `${verticalName} · BDE reports`}</h3><button type="button" data-action="close-dialog" aria-label="Close">×</button></div><div class="dialog-body">${bdes.map(member => action(member.name, "bde", member.id)).join("")}</div>`;
-  }
-  bdeDialog.showModal();
-}
-
 function render(focusHeading = false) {
-  backButton.hidden = selectedBde === null && vertical.value === "all";
-  backButton.textContent = selectedDay !== null ? "← Back to BDE report" : selectedBde !== null ? "← Back to overview" : "← Back to all verticals";
+  backButton.hidden = selectedBde === null && selectedVerticalScreen === null && vertical.value === "all";
+  backButton.textContent = selectedDay !== null ? "← Back to BDE report" : selectedBde !== null ? (selectedLead !== null ? "← Back to team performance" : "← Back to vertical performance") : selectedLead !== null ? "← Back to vertical performance" : "← Back to overview";
   const bde = team.find(member => member.id === selectedBde);
   const days = bde ? reportDays(bde, activeRange).sort((a, b) => b.saleValue - a.saleValue || b.revenue - a.revenue || b.arrived - a.arrived) : [];
-  if (!bde) {
+  if (selectedBde !== null && bde) {
+    breadcrumb.hidden = false;
+    breadcrumb.innerHTML = selectedDay === null ? '<span aria-current="page">BDE report</span>' : action("BDE report", "weekly") + '<span>›</span><span aria-current="page">Daily detail</span>';
+    report.innerHTML = selectedDay === null ? renderBde(bde, days) : renderDaily(bde, days[selectedDay]);
+  } else if (selectedLead !== null && selectedVerticalScreen !== null) {
+    breadcrumb.hidden = false;
+    breadcrumb.innerHTML = '<span aria-current="page">Team performance</span>';
+    report.innerHTML = renderTeamScreen(selectedVerticalScreen, selectedLead);
+  } else if (selectedVerticalScreen !== null) {
+    breadcrumb.hidden = false;
+    breadcrumb.innerHTML = '<span aria-current="page">Vertical performance</span>';
+    report.innerHTML = renderVerticalScreen(selectedVerticalScreen);
+  } else {
     breadcrumb.hidden = true;
     breadcrumb.innerHTML = "";
     report.innerHTML = renderOverview(activeRange);
-  } else {
-    breadcrumb.hidden = false;
-    breadcrumb.innerHTML = selectedDay === null
-      ? '<span aria-current="page">BDE report</span>'
-      : action("BDE report", "weekly") + '<span>›</span><span aria-current="page">Daily detail</span>';
-    report.innerHTML = selectedDay === null ? renderBde(bde, days) : renderDaily(bde, days[selectedDay]);
   }
   if (focusHeading) report.querySelector("h2")?.focus();
 }
@@ -289,6 +317,8 @@ function render(focusHeading = false) {
 backButton.addEventListener("click", () => {
   if (selectedDay !== null) selectedDay = null;
   else if (selectedBde !== null) selectedBde = null;
+  else if (selectedLead !== null) selectedLead = null;
+  else if (selectedVerticalScreen !== null) { selectedVerticalScreen = null; vertical.value = "all"; }
   else vertical.value = "all";
   render(true);
 });
@@ -298,14 +328,17 @@ document.querySelector("main").addEventListener("click", event => {
   if (!button) return;
   const {action: type, value} = button.dataset;
   if (type === "vertical") {
-    showBdePicker(Number(value));
+    selectedVerticalScreen = Number(value);
+    selectedLead = null;
+    selectedBde = null;
+    selectedDay = null;
+    vertical.value = value;
+    render(true);
     return;
   }
-  if (type === "close-dialog") { bdeDialog.close(); return; }
-  if (type === "lead-menu") { showBdePicker(Number(value)); return; }
-  if (type === "lead") { const [verticalIndex, lead] = value.split("|"); showBdePicker(Number(verticalIndex), lead); return; }
+  if (type === "team") { const [verticalIndex, lead] = value.split("|"); selectedVerticalScreen = Number(verticalIndex); selectedLead = lead; selectedBde = null; selectedDay = null; render(true); return; }
   if (type === "overview") selectedBde = null;
-  if (type === "bde") { bdeDialog.close(); selectedBde = Number(value); }
+  if (type === "bde") { selectedBde = Number(value); }
   selectedDay = type === "day" ? Number(value) : null;
   render(true);
 });
@@ -388,11 +421,15 @@ resetFilters.addEventListener("click", () => {
   vertical.value = "all";
   selectedBde = null;
   selectedDay = null;
+  selectedVerticalScreen = null;
+  selectedLead = null;
   applyRange(ranges.all);
 });
 vertical.addEventListener("change", () => {
   selectedDay = null;
   selectedBde = null;
+  selectedVerticalScreen = null;
+  selectedLead = null;
   render();
 });
 render();
