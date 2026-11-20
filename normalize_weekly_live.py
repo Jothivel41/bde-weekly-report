@@ -79,24 +79,40 @@ def main():
                   for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
                   and r.get('status') == 'nbfc_rejected'
                   and in_week(r.get('enrollmentDate') or r.get('stageEnteredAt')))
- revenue_by_day = read('revenue_daily.json')
- revenue_by_bde_day = {}
- for day_key, payload in revenue_by_day.items():
-  for row in payload['bde']:
-   if row['label'] in {member['name'] for member in members}:
-    revenue_by_bde_day[(row['label'], day_key)] = row
+ # Financial reporting uses the payment ledger, not the aggregate Revenue
+ # Dashboard.  A sale is counted once per covered enrollment/lead on its
+ # enrollment date; revenue uses each actual paymentDate and amountReceived.
+ payments=read('payments_snapshot.json')['payments']
+ payment_sales={}
+ payment_revenue=Counter()
+ for row in payments:
+  bde_id=row.get('raisedById')
+  if bde_id not in ids or not row.get('revenueCounted'):
+   continue
+  payment_date=row.get('paymentDate')
+  if in_week(payment_date):
+   payment_revenue[(bde_id,day(payment_date).isoformat())] += int(row.get('amountReceived') or 0)
+  sale_key=(bde_id, tuple(sorted(row.get('coveredEnrollmentIds') or [row.get('leadId')])))
+  # Keep one sale value for a lead/enrollment even when later instalments arrive.
+  payment_sales[sale_key]=max(payment_sales.get(sale_key,0),int(row.get('saleValue') or 0))
+ sale_value=Counter()
+ lead_by_id={row['id']:row for row in crm}
+ for (bde_id,enrollment_ids), value in payment_sales.items():
+  lead_id=next((row.get('leadId') for row in payments if row.get('raisedById')==bde_id and tuple(sorted(row.get('coveredEnrollmentIds') or [row.get('leadId')]))==enrollment_ids),None)
+  enrolled_at=lead_by_id.get(lead_id,{}).get('enrollmentDate')
+  if in_week(enrolled_at):
+   sale_value[(bde_id,day(enrolled_at).isoformat())] += value
  daily=[]
  for u in members:
   for n in range((END-START).days+1):
    dt=(START+timedelta(days=n)).isoformat();k=(u['id'],dt)
-   financial = revenue_by_bde_day.get((u['name'], dt), {})
    daily.append(dict(bde_id=u['id'],date=dt,followups=completed[k],pending=None,
                      stageMoves=None,enrolled=enrolled[k],
                      sales=sales[k],
                      nbfcApproved=approved[k],
                      nbfcRejected=rejected[k],
-                     saleValue=str(financial.get('saleValue', 0)),
-                     revenue=str(financial.get('collections', 0))))
+                     saleValue=str(sale_value[k]),
+                     revenue=str(payment_revenue[k])))
  name_matches=[r['crm_name'] for r in mappings if r['basis'].startswith('Unique')]
  notes=[
   f'Live API snapshot for {START:%d %b %Y}–{END:%d %b %Y} (IST), through the extraction time, Org 02. Scope: the 15 BDEs named by you; other CRM staff, managers and team leads are excluded from totals.',
@@ -105,7 +121,7 @@ def main():
   'Callyzer employee matches based on unique names rather than matching CRM phones: '+', '.join(name_matches)+'. These name-based identity matches were approved by you; the phone discrepancy remains documented.',
   'Enrolled = currently enrolled lead records with enrollmentDate in the selected range, attributed to the current BDE. The API supplies no enrollmentId for these records. This is not verified historical seller attribution or a count of every program enrollment.',
   'Follow-ups completed counts completed tasks returned by the follow-up API with completedAt in the selected range. Calls, notes and other follow-up actions are not included.',
-  'Sales count is the enrolled stage cohort, including NBFC initiated, in-progress and completed cases. NBFC rejected is shown separately and excluded from sales. Initial, part and full payments are revenue/collections, not additional sales. Sale value and Revenue are time-based CRM Revenue Dashboard amounts; they are distinct. Historical pending follow-ups and stage-change counts remain unavailable and show as —.',
+  'Sales count is the enrolled stage cohort, including NBFC initiated, in-progress and completed cases. NBFC rejected is shown separately and excluded from sales. Sale value comes once per enrolled lead from the CRM payment ledger; initial, part and full payments are revenue on their actual payment date. Historical pending follow-ups and stage-change counts remain unavailable and show as —.',
   'Extraction completed: '+read('extracted_at.json')['at']+'. The CRM pagination total and unique lead IDs reconcile; the Callyzer stream END total reconciles. Sources: CRM /admin/leads, /admin/users, /admin/teams, /admin/followups; Callyzer /employee/get and /call-log/history/stream.'
  ]
  source=dict(sample=False,as_of=datetime.fromisoformat(read('extracted_at.json')['end_exclusive']).strftime('%d %b %Y, %H:%M IST'),coverage={'start':str(START),'end':str(END)},bdes=members,arrivals=arrivals,leads=leads,calls=calls,daily_crm=daily,unavailable_metrics=['pending','stageMoves'],source_notes=notes)

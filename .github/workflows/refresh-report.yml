@@ -38,7 +38,7 @@ jobs:
           START_DATE="$(date -d '89 days ago' +%F)"
           printf 'CRM_API_BASE_URL=%s\nCRM_API_KEY=%s\nCALLYZER_API_BASE_URL=%s\nCALLYZER_API_TOKEN=%s\n' "$CRM_API_BASE_URL" "$CRM_API_KEY" "$CALLYZER_API_BASE_URL" "$CALLYZER_API_TOKEN" > .env
           python extract_weekly_live.py --start "$START_DATE" --end "$END_DATE"
-          python fetch_revenue_daily.py --start "$START_DATE" --end "$END_DATE"
+          python fetch_payments.py --start "$START_DATE" --end "$END_DATE"
           python normalize_weekly_live.py --start "$START_DATE" --end "$END_DATE"
           python build_report.py "output/live_${START_DATE}_${END_DATE}/normalized_input.json"
           mkdir -p site
