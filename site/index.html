@@ -11,7 +11,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Calibri,Carlit
 .wrap{width:min(1320px,calc(100% - 48px));margin:auto}
 header{background:linear-gradient(112deg,#020719 8%,#07112f 44%,#3b2269 72%,#822943 100%);color:white;padding:24px 0 28px;border-bottom:4px solid #5c45db}
 .tools,.section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;justify-content:flex-end;gap:15px;flex-wrap:wrap}
 .brand-logo{display:block;width:142px;height:auto;margin:0;filter:none}.org{color:#f0efff;font-weight:600;font-size:1.05rem}
 .date-fields{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .date-fields[hidden]{display:none}
@@ -93,7 +93,7 @@ dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(520px
       <label for="start-date">From <input id="start-date" type="date" disabled required></label>
       <label for="end-date">To <input id="end-date" type="date" disabled required></label>
         </div>
-        <div class="slicer-actions"><button class="apply" type="submit">Apply</button></div>
+        <div class="slicer-actions"><button class="reset" id="reset-date-slicer" type="button">Reset</button><button class="apply" type="submit">Apply</button></div>
       </div>
     </details>
     <label for="vertical"><select class="filter-select" id="vertical" aria-label="Vertical"></select></label>
@@ -131,6 +131,7 @@ const report = document.querySelector("#report");
 const breadcrumb = document.querySelector("#breadcrumb");
 const backButton = document.querySelector("#back-button");
 const resetFilters = document.querySelector("#reset-filters");
+const resetDateSlicer = document.querySelector("#reset-date-slicer");
 const bdeDialog = document.querySelector("#bde-dialog");
 for (const input of [startDate, endDate]) {
   input.min = firstDate;
@@ -397,6 +398,18 @@ function updatePendingButtons() {
   });
 }
 
+function resetPendingDateRanges() {
+  pendingCohortRange = ranges.all;
+  pendingTimeRange = ranges.all;
+  pendingCohortPreset = "All Time";
+  pendingTimePreset = "All Time";
+  customPending = false;
+  dateFields.hidden = true;
+  startDate.disabled = endDate.disabled = true;
+  rangeError.hidden = true;
+  updatePendingButtons();
+}
+
 function applyPendingRanges() {
   cohortRange = pendingCohortRange;
   timeRange = pendingTimeRange;
@@ -483,16 +496,12 @@ resetFilters.addEventListener("click", () => {
   selectedLead = null;
   cohortRange = ranges.all;
   timeRange = ranges.all;
-  pendingCohortRange = ranges.all;
-  pendingTimeRange = ranges.all;
   cohortPreset = "All Time";
   timePreset = "All Time";
-  pendingCohortPreset = "All Time";
-  pendingTimePreset = "All Time";
-  customPending = false;
-  updatePendingButtons();
+  resetPendingDateRanges();
   applyPendingRanges();
 });
+resetDateSlicer.addEventListener("click", () => resetPendingDateRanges());
 vertical.addEventListener("change", () => {
   selectedDay = null;
   selectedBde = null;
