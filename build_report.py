@@ -22,7 +22,7 @@ STAGES = {
     "cold": "cold",
     "warm": "warm",
 }
-DAILY_FIELDS = ("followups", "pending", "stageMoves", "enrolled", "sales", "saleValue")
+DAILY_FIELDS = ("followups", "pending", "stageMoves", "enrolled", "sales", "nbfcRejected", "saleValue")
 COUNTERS = ("arrived", "leads", "hot", "deadJunk", "cold", "warm", *DAILY_FIELDS)
 PHONE_KEY = re.compile(r"[A-Za-z0-9_+-]{1,128}")
 
