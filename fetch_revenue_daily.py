@@ -19,6 +19,7 @@ def main():
     args = parser.parse_args()
     start, end = date.fromisoformat(args.start), date.fromisoformat(args.end)
     output = PROJECT / f"output/live_{start}_{end}" / "revenue_daily.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
     cached = json.loads(output.read_text()) if output.exists() else {}
     config = dotenv_values(PROJECT / ".env")
     base = config["CRM_API_BASE_URL"].rstrip("/")
