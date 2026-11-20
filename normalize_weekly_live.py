@@ -71,6 +71,10 @@ def main():
                for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
                and r.get('status') != 'nbfc_rejected'
                and in_week(r.get('enrollmentDate') or r.get('stageEnteredAt')))
+ approved=Counter((r['assignedToId'],day(r.get('enrollmentDate') or r.get('stageEnteredAt')).isoformat())
+                  for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
+                  and r.get('status') == 'nbfc_completed'
+                  and in_week(r.get('enrollmentDate') or r.get('stageEnteredAt')))
  rejected=Counter((r['assignedToId'],day(r.get('enrollmentDate') or r.get('stageEnteredAt')).isoformat())
                   for r in crm if r['assignedToId'] in ids and r.get('stage') == 'enrolled'
                   and r.get('status') == 'nbfc_rejected'
@@ -89,6 +93,7 @@ def main():
    daily.append(dict(bde_id=u['id'],date=dt,followups=completed[k],pending=None,
                      stageMoves=None,enrolled=enrolled[k],
                      sales=sales[k],
+                     nbfcApproved=approved[k],
                      nbfcRejected=rejected[k],
                      saleValue=str(financial.get('saleValue', 0)),
                      revenue=str(financial.get('collections', 0))))
