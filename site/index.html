@@ -373,9 +373,16 @@ function isoDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function todayInIst() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit"})
+    .formatToParts(new Date()).filter(part => part.type !== "literal").map(part => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 function rangeForPreset(preset) {
-  const end = calendarDate(lastDate);
-  const startAt = date => ({start: isoDate(date < calendarDate(firstDate) ? calendarDate(firstDate) : date), end: lastDate});
+  const end = calendarDate(todayInIst());
+  const endKey = isoDate(end);
+  const startAt = date => ({start: isoDate(date < calendarDate(firstDate) ? calendarDate(firstDate) : date), end: endKey});
   if (preset === "all") return ranges.all;
   if (preset === "today") return {start: lastDate, end: lastDate};
   if (preset === "yesterday") return startAt(new Date(end.getTime() - millisecondsPerDay));
