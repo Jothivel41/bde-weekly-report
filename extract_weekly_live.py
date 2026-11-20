@@ -12,12 +12,13 @@ parser.add_argument('--start', default='2026-09-01')
 parser.add_argument('--end', default=datetime.now(ZoneInfo('Asia/Kolkata')).date().isoformat())
 parser.add_argument('--force', action='store_true', help='Re-fetch snapshots and call chunks even when a matching local run exists.')
 parser.add_argument('--leads-only', action='store_true', help='Refresh only the CRM lead snapshot; skip user, follow-up and Callyzer downloads.')
+parser.add_argument('--calls-only', action='store_true', help='Use existing consistent CRM snapshot and fetch calls only.')
 args=parser.parse_args()
 V=dotenv_values(P/'.env'); IST=ZoneInfo('Asia/Kolkata')
 from datetime import timedelta
 START=datetime.fromisoformat(args.start).replace(tzinfo=IST)
 END=datetime.fromisoformat(args.end).replace(tzinfo=IST)+timedelta(days=1)
-assert 1 <= (END-START).days <= 180, 'Provide 1 to 180 calendar days'
+assert 1 <= (END-START).days <= 730, 'Provide 1 to 730 calendar days'
 QUERY_END=min(END,datetime.now(IST))
 assert QUERY_END>START
 OUT=P/('output/live_'+args.start+'_'+args.end)
@@ -34,7 +35,7 @@ def get_page(page):
    time.sleep(2)
 def main():
  OUT.mkdir(exist_ok=True)
- if not args.leads_only:
+ if not args.leads_only and not args.calls_only:
   for route, filename in [('admin/users','admin_users.json'),('admin/teams','admin_teams.json'),('admin/stages','admin_stages.json'),('admin/followups','followups_snapshot.json')]:
    r=requests.get(V['CRM_API_BASE_URL']+'/'+route,headers={'x-api-key':V['CRM_API_KEY']},params={'page':1,'limit':100},timeout=30,allow_redirects=False);r.raise_for_status();data=r.json()
    if isinstance(data,dict) and 'pagination' in data: assert len(data['data'])==data['pagination']['total']
@@ -42,7 +43,7 @@ def main():
   r=requests.get(V['CALLYZER_API_BASE_URL'].rstrip('/')+'/employee/get',headers={'Authorization':'Bearer '+V['CALLYZER_API_TOKEN']},params={'page_no':1,'page_size':100},timeout=30,allow_redirects=False);r.raise_for_status();data=r.json()
   assert data['message']=='Success' and len(data['result'])==data['total_records'];save('callyzer_employees.json',data)
   time.sleep(2.1)
- if args.force or not (OUT/'leads_snapshot.json').exists():
+ if not args.calls_only and (args.force or not (OUT/'leads_snapshot.json').exists()):
   meta,rows=get_page(1);print('CRM pagination:',meta,flush=True)
   with ThreadPoolExecutor(max_workers=4) as pool:
    jobs={pool.submit(get_page,p):p for p in range(2,meta['totalPages']+1)}

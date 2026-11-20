@@ -160,6 +160,7 @@ def build_data(source):
         "verticals": [escape(name) for name in verticals],
         "verticalManagers": {escape(row["name"]): escape(row["manager"]) for row in vertical_config},
         "coverage": {"start": start.isoformat(), "end": end.isoformat()},
+        "asOf": source.get("as_of", "Extraction time not supplied"),
         "ranges": {
             "all": {"start": start.isoformat(), "end": end.isoformat()},
             "latest": {"start": max(start, end - 6 * DAY).isoformat(), "end": end.isoformat()},

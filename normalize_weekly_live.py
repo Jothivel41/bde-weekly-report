@@ -1,5 +1,6 @@
 """Normalize the verified local API snapshot for the requested 15-person roster."""
 import argparse,json
+from decimal import Decimal
 from collections import Counter
 from datetime import datetime,timedelta,date
 from pathlib import Path
@@ -91,10 +92,10 @@ def main():
    continue
   payment_date=row.get('paymentDate')
   if in_week(payment_date):
-   payment_revenue[(bde_id,day(payment_date).isoformat())] += int(row.get('amountReceived') or 0)
+   payment_revenue[(bde_id,day(payment_date).isoformat())] += Decimal(str(row.get('amountReceived') or 0))
   sale_key=(bde_id, tuple(sorted(row.get('coveredEnrollmentIds') or [row.get('leadId')])))
   # Keep one sale value for a lead/enrollment even when later instalments arrive.
-  payment_sales[sale_key]=max(payment_sales.get(sale_key,0),int(row.get('saleValue') or 0))
+  payment_sales[sale_key]=max(payment_sales.get(sale_key,0),Decimal(str(row.get('saleValue') or 0)))
  sale_value=Counter()
  lead_by_id={row['id']:row for row in crm}
  for (bde_id,enrollment_ids), value in payment_sales.items():
@@ -115,14 +116,14 @@ def main():
                      revenue=str(payment_revenue[k])))
  name_matches=[r['crm_name'] for r in mappings if r['basis'].startswith('Unique')]
  notes=[
-  f'Live API snapshot for {START:%d %b %Y}–{END:%d %b %Y} (IST), through the extraction time, Org 02. Scope: the 15 BDEs named by you; other CRM staff, managers and team leads are excluded from totals.',
+  f'CRM database and Callyzer snapshot for {START:%d %b %Y}–{END:%d %b %Y} (IST), through the extraction time, Org 02. Scope: the 15 BDEs named by you; other CRM staff, managers and team leads are excluded from totals.',
   'Leads arrived is an arrival cohort: CRM creations plus lead_reactivated activities in the selected IST date range. Leads received is assignment-date based and can include leads at any current stage. Both use current assignedToId because historical ownership is unavailable.',
   'Calls are time-based: recorded outgoing PhoneCall / Voice calls that occurred in the selected IST date range. Each call ID counts once; unique contacts are deduplicated within the selected view. Connected means duration >2 seconds; talk time uses durations of those connected calls.',
   'Callyzer employee matches based on unique names rather than matching CRM phones: '+', '.join(name_matches)+'. These name-based identity matches were approved by you; the phone discrepancy remains documented.',
   'Enrolled = currently enrolled lead records with enrollmentDate in the selected range, attributed to the current BDE. The API supplies no enrollmentId for these records. This is not verified historical seller attribution or a count of every program enrollment.',
   'Follow-ups completed counts completed tasks returned by the follow-up API with completedAt in the selected range. Calls, notes and other follow-up actions are not included.',
   'Sales count is the enrolled stage cohort, including NBFC initiated, in-progress and completed cases. NBFC rejected is shown separately and excluded from sales. Sale value comes once per enrolled lead from the CRM payment ledger; initial, part and full payments are revenue on their actual payment date. Historical pending follow-ups and stage-change counts remain unavailable and show as —.',
-  'Extraction completed: '+read('extracted_at.json')['at']+'. The CRM pagination total and unique lead IDs reconcile; the Callyzer stream END total reconciles. Sources: CRM /admin/leads, /admin/users, /admin/teams, /admin/followups; Callyzer /employee/get and /call-log/history/stream.'
+  'CRM snapshot: '+(read('crm_db_manifest.json')['extracted_at'] if (O/'crm_db_manifest.json').exists() else 'API snapshot')+'. Call extraction completed: '+read('extracted_at.json')['at']+'. CRM uses a complete repeatable-read database snapshot when crm_db_manifest.json is present; otherwise the API snapshot. Callyzer stream END totals reconcile. Historical attribution uses current owners. Call history is restricted to this CRM reporting window and does not establish earlier Callyzer retention.'
  ]
  source=dict(sample=False,as_of=datetime.fromisoformat(read('extracted_at.json')['end_exclusive']).strftime('%d %b %Y, %H:%M IST'),coverage={'start':str(START),'end':str(END)},bdes=members,arrivals=arrivals,leads=leads,calls=calls,daily_crm=daily,unavailable_metrics=['pending','stageMoves'],source_notes=notes)
  (O/'normalized_input.json').write_text(json.dumps(source,ensure_ascii=False))

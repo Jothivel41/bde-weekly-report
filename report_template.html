@@ -103,7 +103,7 @@ dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(520px
 </main>
 <script id="report-data" type="application/json"></script>
 <script>
-const {ranges, coverage, team, verticals, days: dailyRecords, sample, verticalManagers, unavailableMetrics = []} =
+const {ranges, coverage, team, verticals, days: dailyRecords, sample, verticalManagers, unavailableMetrics = [], asOf = "Extraction time not supplied"} =
   JSON.parse(document.querySelector("#report-data").textContent);
 const firstDate = coverage.start;
 const lastDate = coverage.end;
@@ -415,7 +415,7 @@ function applyPendingRanges() {
   selectedDay = null;
   rangeError.hidden = true;
   updateSlicerLabel();
-  
+
   render();
 }
 
@@ -480,7 +480,7 @@ document.querySelector("#filters").addEventListener("submit", event => {
   applyPendingRanges();
 });
 resetFilters.addEventListener("click", () => {
-  
+
   dateFields.hidden = true;
   startDate.disabled = endDate.disabled = true;
   vertical.value = "all";
@@ -508,7 +508,7 @@ vertical.addEventListener("change", () => {
 });
 updateSlicerLabel();
 updatePendingButtons();
-document.querySelector('#data-freshness').textContent = `Source snapshot: ${firstDate} through ${lastDate} (IST). ${lastDate < todayInIst() ? 'Today is not included. The source refresh has not reached today.' : 'Today is partial, through the last extraction.'} Apply filters this snapshot; it does not fetch new CRM data.`;
+document.querySelector('#data-freshness').textContent = `Source snapshot: ${firstDate} through ${lastDate} (IST). Data cutoff: ${asOf}. ${lastDate < todayInIst() ? 'Today is not included. The source refresh has not reached today.' : 'Today is partial, through the last extraction.'} Apply filters this snapshot; it does not fetch new CRM data.`;
 render();
 </script>
 </body>
