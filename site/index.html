@@ -80,14 +80,15 @@ dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(520px
 </div></header>
 <main class="wrap">
   <form class="tools" id="filters" aria-label="Report filters">
-    <label for="date-preset">Period <select class="filter-select" id="date-preset">
+    <label for="date-preset"><select class="filter-select" id="date-preset" aria-label="Date range">
+      <option value="all" selected disabled>Select date range</option>
       <option value="today">Today</option><option value="yesterday">Yesterday</option>
       <option value="last7">Last 7 Days</option><option value="last30">Last 30 Days</option>
-      <option value="mtd">Month to Date</option><option value="custom" selected>Custom Range</option>
+      <option value="mtd">Month to Date</option><option value="custom">Custom Range</option>
     </select></label>
-    <span id="date-fields">
-      <label for="start-date">From <input id="start-date" type="date" required></label>
-      <label for="end-date">To <input id="end-date" type="date" required></label>
+    <span id="date-fields" hidden>
+      <label for="start-date">From <input id="start-date" type="date" disabled required></label>
+      <label for="end-date">To <input id="end-date" type="date" disabled required></label>
     </span>
     <span id="date-slicer-label" aria-live="polite"></span>
     <label for="vertical"><select class="filter-select" id="vertical" aria-label="Vertical"></select></label>
@@ -456,8 +457,8 @@ function selectPeriod() {
   rangeError.hidden = true;
   if (!customPending) {
     const range = rangeForPreset(preset);
-    setPendingRange('cohort', range, presetLabels[preset]);
-    setPendingRange('time', range, presetLabels[preset]);
+    setPendingRange('cohort', range, presetLabels[preset] || "Year to date");
+    setPendingRange('time', range, presetLabels[preset] || "Year to date");
   }
 }
 datePreset.addEventListener('change', selectPeriod);
@@ -493,7 +494,7 @@ resetFilters.addEventListener("click", () => {
   cohortPreset = "All Time";
   timePreset = "All Time";
   resetPendingDateRanges();
-  datePreset.value = "custom";
+  datePreset.value = "all";
   startDate.value = firstDate; endDate.value = lastDate;
   selectPeriod();
   applyPendingRanges();
