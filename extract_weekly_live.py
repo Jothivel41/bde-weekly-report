@@ -64,7 +64,10 @@ def main():
     if path.exists() and not args.force:
      batch=json.loads(path.read_text())
     else:
-     filters={'call_from':int(chunk_start.timestamp()),'call_to':int(chunk_end.timestamp())-1,'call_types':['Outgoing'],'call_method':'PhoneCall','call_mode':'Voice'}
+     # The Callyzer report UI's Outgoing total includes every outgoing call
+     # method.  Do not narrow this to PhoneCall/Voice or the dashboard will
+     # silently omit calls such as other supported outgoing methods.
+     filters={'call_from':int(chunk_start.timestamp()),'call_to':int(chunk_end.timestamp())-1,'call_types':['Outgoing']}
      for attempt in range(3):
       part=[];terminator=None
       try:

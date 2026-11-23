@@ -191,8 +191,11 @@ function cards(items) {
 }
 
 function duration(seconds) {
-  const rounded = Math.round(seconds);
-  return Math.floor(rounded / 60) + ":" + String(rounded % 60).padStart(2, "0");
+  const rounded = Math.max(0, Math.round(Number(seconds) || 0));
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  const remainingSeconds = rounded % 60;
+  return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
 function averageTalk(summary) {
@@ -202,7 +205,7 @@ function averageTalk(summary) {
 function metrics(summary, extra = []) {
   return cards([...extra, ["Leads arrived", number.format(summary.arrived)],
     ["Call attempts", number.format(summary.attempts)], ["Unique calls", number.format(summary.contacts.length)],
-    ["Connected calls", number.format(summary.connected)], ["Avg. talk time (mm:ss)", averageTalk(summary)],
+    ["Connected calls", number.format(summary.connected)], ["Avg. talk time (HH:MM:SS)", averageTalk(summary)],
     ["Enrolled", number.format(summary.enrolled)], ["NBFC approved", number.format(summary.nbfcApproved)], ["NBFC rejected", number.format(summary.nbfcRejected)],
     ["Sale value", rupees.format(summary.saleValue)],
     ["Revenue", rupees.format(summary.revenue)]]);
@@ -285,7 +288,7 @@ function renderBde(bde, days) {
   return `<h2 tabindex="-1">${bde.name} · Productivity</h2>
     <p class="muted">${verticals[bde.vertical]} · ${bde.lead}</p>
     ${metrics(total(days))}
-    ${table("Day-wise performance", ["Day", "Leads arrived", "Leads received", "Call attempts", "Unique calls", "Connected", "Avg. talk time", "Follow-ups completed", "Enrolled", "Sale value", "Revenue", ""],
+    ${table("Day-wise performance", ["Day", "Leads arrived", "Leads received", "Call attempts", "Unique calls", "Connected", "Avg. talk time (HH:MM:SS)", "Follow-ups completed", "Enrolled", "Sale value", "Revenue", ""],
       days.map((day, index) => [day.date, day.arrived, day.leads, day.attempts, day.contacts.length, day.connected,
         averageTalk(day), number.format(day.followups), number.format(day.enrolled), rupees.format(day.saleValue), rupees.format(day.revenue), action("View day →", "day", index)]),
       {textCols: [10]})}`;
@@ -301,7 +304,7 @@ function renderDaily(bde, day) {
   return `<h2 tabindex="-1">${bde.name} · ${day.date}</h2>
     ${metrics(day)}
     <div class="split">
-    ${table("Hourly calling activity", ["Hour (IST)", "Call attempts", "Unique calls", "Connected", "Not connected (>2s rule)", "Talk time (mm:ss)", "Avg. talk time (mm:ss)", "Connection rate"], hours,
+    ${table("Hourly calling activity", ["Hour (IST)", "Call attempts", "Unique calls", "Connected", "Not connected (>2s rule)", "Talk time (HH:MM:SS)", "Avg. talk time (HH:MM:SS)", "Connection rate"], hours,
       {footer: ["Day total", ...callingCells(day)]})}
     ${table("Daily CRM activity", ["CRM metric", "Value"], [
       ["Leads arrived", day.arrived], ["Leads received", day.leads], ["Dead/Junk leads", day.deadJunk], ["Follow-ups completed", number.format(day.followups)], ["Pending follow-ups", number.format(day.pending)],
