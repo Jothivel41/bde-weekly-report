@@ -270,17 +270,17 @@ function renderVerticalScreen(index) {
   const summary = total(members.map(member => total(reportDays(member))));
   const groups = [...new Set(members.map(leadLabel))].map(lead => ({lead, members: members.filter(member => leadLabel(member) === lead)}));
   return `<h2 tabindex="-1">${verticalTitle(index)}</h2><p class="muted">Team performance and individual BDE reports</p>
-    ${metrics(summary, [["BDEs", members.length], ["Leads received", number.format(summary.leads)]])}
-    ${table("Team performance", ["Team Lead", "BDEs", "Leads received", "Leads arrived", "Call attempts", "Sale value", "Revenue", ""], groups.map(group => { const value = total(group.members.map(member => total(reportDays(member)))); return [group.lead, group.members.length, number.format(value.leads), number.format(value.arrived), number.format(value.attempts), rupees.format(value.saleValue), rupees.format(value.revenue), action("View team →", "team", `${index}|${group.lead}`)]; }), {textCols:[0,7], scrollable:false, className:"vertical-table"})}
-    ${table("Individual BDE performance", ["BDE", "Leads received", "Leads arrived", "Call attempts", "Connected", "Enrolled", "Sale value", "Revenue", ""], performanceRows(members), {textCols:[0,8], scrollable:false, className:"vertical-table"})}`;
+    ${metrics(summary, [["BDEs", members.length], ["Leads assigned", number.format(summary.leads)]])}
+    ${table("Team performance", ["Team Lead", "BDEs", "Leads assigned", "Leads arrived", "Call attempts", "Sale value", "Revenue", ""], groups.map(group => { const value = total(group.members.map(member => total(reportDays(member)))); return [group.lead, group.members.length, number.format(value.leads), number.format(value.arrived), number.format(value.attempts), rupees.format(value.saleValue), rupees.format(value.revenue), action("View team →", "team", `${index}|${group.lead}`)]; }), {textCols:[0,7], scrollable:false, className:"vertical-table"})}
+    ${table("Individual BDE performance", ["BDE", "Leads assigned", "Leads arrived", "Call attempts", "Connected", "Enrolled", "Sale value", "Revenue", ""], performanceRows(members), {textCols:[0,8], scrollable:false, className:"vertical-table"})}`;
 }
 
 function renderTeamScreen(index, lead) {
   const members = team.filter(member => member.vertical === index && leadLabel(member) === lead);
   const summary = total(members.map(member => total(reportDays(member))));
   return `<h2 tabindex="-1">${lead} · Team performance</h2><p class="muted">${verticalTitle(index)}</p>
-    ${metrics(summary, [["BDEs", members.length], ["Leads received", number.format(summary.leads)]])}
-    ${table("Individual BDE performance", ["BDE", "Leads received", "Leads arrived", "Call attempts", "Connected", "Enrolled", "Sale value", "Revenue", ""], performanceRows(members), {textCols:[0,8], scrollable:false, className:"vertical-table"})}`;
+    ${metrics(summary, [["BDEs", members.length], ["Leads assigned", number.format(summary.leads)]])}
+    ${table("Individual BDE performance", ["BDE", "Leads assigned", "Leads arrived", "Call attempts", "Connected", "Enrolled", "Sale value", "Revenue", ""], performanceRows(members), {textCols:[0,8], scrollable:false, className:"vertical-table"})}`;
 }
 
 function renderBde(bde, days) {
@@ -288,7 +288,7 @@ function renderBde(bde, days) {
   return `<h2 tabindex="-1">${bde.name} · Productivity</h2>
     <p class="muted">${verticals[bde.vertical]} · ${bde.lead}</p>
     ${metrics(total(days))}
-    ${table("Day-wise performance", ["Day", "Leads arrived", "Leads received", "Call attempts", "Unique calls", "Connected", "Avg. talk time (HH:MM:SS)", "Follow-ups completed", "Enrolled", "Sale value", "Revenue", ""],
+    ${table("Day-wise performance", ["Day", "Leads arrived", "Leads assigned", "Call attempts", "Unique calls", "Connected", "Avg. talk time (HH:MM:SS)", "Follow-ups completed", "Enrolled", "Sale value", "Revenue", ""],
       days.map((day, index) => [day.date, day.arrived, day.leads, day.attempts, day.contacts.length, day.connected,
         averageTalk(day), number.format(day.followups), number.format(day.enrolled), rupees.format(day.saleValue), rupees.format(day.revenue), action("View day →", "day", index)]),
       {textCols: [10]})}`;
@@ -307,7 +307,7 @@ function renderDaily(bde, day) {
     ${table("Hourly calling activity", ["Hour (IST)", "Call attempts", "Unique calls", "Connected", "Not connected (>2s rule)", "Talk time (HH:MM:SS)", "Avg. talk time (HH:MM:SS)", "Connection rate"], hours,
       {footer: ["Day total", ...callingCells(day)]})}
     ${table("Daily CRM activity", ["CRM metric", "Value"], [
-      ["Leads arrived", day.arrived], ["Leads received", day.leads], ["Dead/Junk leads", day.deadJunk], ["Follow-ups completed", number.format(day.followups)], ["Pending follow-ups", number.format(day.pending)],
+      ["Leads arrived", day.arrived], ["Leads assigned", day.leads], ["Dead/Junk leads", day.deadJunk], ["Follow-ups completed", number.format(day.followups)], ["Pending follow-ups", number.format(day.pending)],
       ["Enrolled", number.format(day.enrolled)], ["NBFC rejected", number.format(day.nbfcRejected)], ["Sale value", rupees.format(day.saleValue)], ["Revenue", rupees.format(day.revenue)],
     ])}
     </div>`;
