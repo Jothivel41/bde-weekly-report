@@ -117,7 +117,7 @@ def main():
  name_matches=[r['crm_name'] for r in mappings if r['basis'].startswith('Unique')]
  notes=[
   f'CRM database and Callyzer snapshot for {START:%d %b %Y}–{END:%d %b %Y} (IST), through the extraction time, Org 02. Scope: the 15 BDEs named by you; other CRM staff, managers and team leads are excluded from totals.',
-  'Leads arrived is an arrival cohort: CRM creations plus lead_reactivated activities in the selected IST date range. Leads received is assignment-date based and can include leads at any current stage. Both use current assignedToId because historical ownership is unavailable.',
+  'Leads arrived is an arrival cohort: CRM creations plus lead_reactivated activities in the selected IST date range. Leads assigned is assignment-date based and can include leads at any current stage. Both use current assignedToId because historical ownership is unavailable.',
   'Calls are time-based: recorded outgoing PhoneCall / Voice calls that occurred in the selected IST date range. Each call ID counts once; unique contacts are deduplicated within the selected view. Connected means duration >2 seconds; talk time uses durations of those connected calls.',
   'Callyzer employee matches based on unique names rather than matching CRM phones: '+', '.join(name_matches)+'. These name-based identity matches were approved by you; the phone discrepancy remains documented.',
   'Enrolled = currently enrolled lead records with enrollmentDate in the selected range, attributed to the current BDE. The API supplies no enrollmentId for these records. This is not verified historical seller attribution or a count of every program enrollment.',
