@@ -3,8 +3,8 @@ name: Refresh BDE report
 on:
   workflow_dispatch:
   schedule:
-    # 07:30 IST, Monday to Saturday. GitHub cron uses UTC.
-    - cron: "0 2 * * 1-6"
+    # 07:30 IST every day. GitHub cron uses UTC.
+    - cron: "0 2 * * *"
 
 permissions:
   contents: read
@@ -34,6 +34,14 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Generate live report
         run: |
+          missing=()
+          for key in CRM_API_BASE_URL CRM_API_KEY CALLYZER_API_BASE_URL CALLYZER_API_TOKEN; do
+            if [ -z "${!key}" ]; then missing+=("$key"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Missing required GitHub Actions secrets: ${missing[*]}"
+            exit 1
+          fi
           END_DATE="$(date +%F)"
           START_DATE="$(date +%Y)-01-01"
           printf 'CRM_API_BASE_URL=%s\nCRM_API_KEY=%s\nCALLYZER_API_BASE_URL=%s\nCALLYZER_API_TOKEN=%s\n' "$CRM_API_BASE_URL" "$CRM_API_KEY" "$CALLYZER_API_BASE_URL" "$CALLYZER_API_TOKEN" > .env
