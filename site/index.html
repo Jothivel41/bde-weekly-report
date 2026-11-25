@@ -12,7 +12,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Calibri,Carlit
 header{background:linear-gradient(112deg,#020719 8%,#07112f 44%,#3b2269 72%,#822943 100%);color:white;padding:24px 0 28px;border-bottom:4px solid #5c45db}
 .tools,.section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;justify-content:flex-end;gap:15px;min-height:54px;flex-wrap:wrap}
-.brand-logo{display:block;width:190px;height:auto;margin:0;filter:none}.org{color:#f0efff;font-weight:600;font-size:1.05rem}
+.brand-logo{display:block;width:220px;height:auto;margin:0;filter:none}.org{color:#f0efff;font-weight:600;font-size:1.05rem}
 .date-fields{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .date-fields[hidden]{display:none}
 .tools .range-note{flex-basis:100%}
@@ -155,7 +155,8 @@ function total(records) {
     key, records.reduce((sum, record) => sum + (record[key] ?? 0), 0),
   ]));
   const contacts = [...new Set(records.flatMap(record => record.contacts ?? []))];
-  return {...sums, ...Object.fromEntries(unavailableMetrics.map(key => [key, null])), contacts};
+  const workingDays = records.reduce((sum, record) => sum + (record.workingDays ?? ((record.attempts ?? 0) > 0 ? 1 : 0)), 0);
+  return {...sums, ...Object.fromEntries(unavailableMetrics.map(key => [key, null])), contacts, workingDays};
 }
 
 function calendarDate(isoDate) {
@@ -175,6 +176,7 @@ function reportDays(bde) {
     const cohortActive = inRange(key, cohortRange);
     const timeActive = inRange(key, timeRange);
     const row = {...total(timeActive ? hours : []), ...record, date: dayFormat.format(date), hours: timeActive ? hours : []};
+    row.workingDays = timeActive && row.attempts > 0 ? 1 : 0;
     if (!cohortActive) for (const field of ["arrived", "leads", "hot", "deadJunk", "cold", "warm", "enrolled", "sales", "nbfcApproved", "nbfcRejected", "saleValue"]) row[field] = 0;
     if (!timeActive) { row.followups = 0; row.revenue = 0; }
     return row;
@@ -198,6 +200,10 @@ function duration(seconds) {
   return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
+function averageTalkPerWorkingDay(summary) {
+  return summary.workingDays ? duration(summary.talk / summary.workingDays) : "—";
+}
+
 function averageTalk(summary) {
   return summary.connected ? duration(summary.talk / summary.connected) : "—";
 }
@@ -205,7 +211,7 @@ function averageTalk(summary) {
 function metrics(summary, extra = []) {
   return cards([...extra, ["Leads arrived", number.format(summary.arrived)],
     ["Call attempts", number.format(summary.attempts)], ["Unique calls", number.format(summary.contacts.length)],
-    ["Connected calls", number.format(summary.connected)], ["Avg. talk time (HH:MM:SS)", averageTalk(summary)],
+    ["Connected calls", number.format(summary.connected)], ["Avg. talk time / working day (HH:MM:SS)", averageTalkPerWorkingDay(summary)],
     ["Enrolled", number.format(summary.enrolled)], ["NBFC approved", number.format(summary.nbfcApproved)], ["NBFC rejected", number.format(summary.nbfcRejected)],
     ["Sale value", rupees.format(summary.saleValue)],
     ["Revenue", rupees.format(summary.revenue)]]);
@@ -288,7 +294,7 @@ function renderBde(bde, days) {
   return `<h2 tabindex="-1">${bde.name} · Productivity</h2>
     <p class="muted">${verticals[bde.vertical]} · ${bde.lead}</p>
     ${metrics(total(days))}
-    ${table("Day-wise performance", ["Day", "Leads arrived", "Leads assigned", "Call attempts", "Unique calls", "Connected", "Avg. talk time (HH:MM:SS)", "Follow-ups completed", "Enrolled", "Sale value", "Revenue", ""],
+    ${table("Day-wise performance", ["Day", "Leads arrived", "Leads assigned", "Call attempts", "Unique calls", "Connected", "Avg. talk time per connected call (HH:MM:SS)", "Follow-ups completed", "Enrolled", "Sale value", "Revenue", ""],
       days.map((day, index) => [day.date, day.arrived, day.leads, day.attempts, day.contacts.length, day.connected,
         averageTalk(day), number.format(day.followups), number.format(day.enrolled), rupees.format(day.saleValue), rupees.format(day.revenue), action("View day →", "day", index)]),
       {textCols: [10]})}`;
